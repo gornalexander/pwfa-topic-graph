@@ -754,7 +754,7 @@ function switchToTree() {
     d.x = d.fx = pos[d.id].x;
     d.y = d.fy = pos[d.id].y;
   });
-  link.attr("stroke", "rgba(100,116,139,0.25)").attr("stroke-opacity", 1);
+  link.attr("stroke", "rgba(148,163,184,0.5)").attr("stroke-width", 1.5).attr("stroke-opacity", 1);
   node.attr("transform", d => `translate(${d.x},${d.y})`);
   link
     .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
@@ -764,7 +764,7 @@ function switchToTree() {
 
 function switchToForce() {
   data.nodes.forEach(d => { d.fx = null; d.fy = null; });
-  link.attr("stroke", "rgba(100,116,139,0.15)").attr("stroke-opacity", 1);
+  link.attr("stroke", "rgba(100,116,139,0.15)").attr("stroke-width", 1.2).attr("stroke-opacity", 1);
   simulation.alphaTarget(0).alpha(0.8).restart();
 }
 
