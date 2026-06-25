@@ -521,17 +521,36 @@ node.on("mouseover", function(event, d) {
     .attr("stroke-opacity", 1)
     .attr("stroke-width", d.type === "category" ? 3 : 2.5);
 
-  const isConn = l => l.source.id === d.id || l.target.id === d.id;
-  link.transition().duration(200)
-    .attr("stroke", l => isConn(l) ? "rgba(167,180,200,0.7)" : "rgba(100,116,139,0.06)")
-    .attr("stroke-width", l => isConn(l) ? 2.5 : baseLinkWidth() * 0.6);
+  // Walk upward through sources to rank-0, collecting path nodes and links
+  const pathNodeIds = new Set();
+  const pathLinkKeys = new Set();
+  function walkUp(nodeId) {
+    if (pathNodeIds.has(nodeId)) return;
+    pathNodeIds.add(nodeId);
+    data.links.forEach(l => {
+      const sid = l.source.id || l.source;
+      const tid = l.target.id || l.target;
+      if (tid === nodeId) {
+        pathLinkKeys.add(sid + "->" + tid);
+        walkUp(sid);
+      }
+    });
+  }
+  walkUp(d.id);
 
-  const connectedIds = new Set();
-  connectedIds.add(d.id);
+  // Also highlight direct neighbors (including downstream)
+  const connectedIds = new Set(pathNodeIds);
   data.links.forEach(l => {
-    if ((l.source.id || l.source) === d.id) connectedIds.add(l.target.id || l.target);
-    if ((l.target.id || l.target) === d.id) connectedIds.add(l.source.id || l.source);
+    const sid = l.source.id || l.source;
+    const tid = l.target.id || l.target;
+    if (sid === d.id) { connectedIds.add(tid); pathLinkKeys.add(sid + "->" + tid); }
+    if (tid === d.id) { connectedIds.add(sid); pathLinkKeys.add(sid + "->" + tid); }
   });
+
+  const isHighlighted = l => pathLinkKeys.has((l.source.id || l.source) + "->" + (l.target.id || l.target));
+  link.transition().duration(200)
+    .attr("stroke", l => isHighlighted(l) ? "rgba(167,180,200,0.7)" : "rgba(100,116,139,0.06)")
+    .attr("stroke-width", l => isHighlighted(l) ? 2.5 : baseLinkWidth() * 0.6);
 
   node.transition().duration(200)
     .attr("opacity", n => connectedIds.has(n.id) ? 1 : 0.2);
