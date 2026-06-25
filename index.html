@@ -510,6 +510,14 @@ node.each(function(d) {
   });
 });
 
+// Link style helpers
+function baseLinkStroke() {
+  return currentLayout === "tree" ? "rgba(148,163,184,0.5)" : "rgba(100,116,139,0.15)";
+}
+function baseLinkWidth() {
+  return currentLayout === "tree" ? 1.5 : 1.2;
+}
+
 // Interactions
 node.on("mouseover", function(event, d) {
   d3.select(this).select(".node-circle")
@@ -517,15 +525,11 @@ node.on("mouseover", function(event, d) {
     .attr("stroke-opacity", 1)
     .attr("stroke-width", d.type === "category" ? 3 : 2.5);
 
-  // Highlight connected links
+  const isConn = l => l.source.id === d.id || l.target.id === d.id;
   link.transition().duration(200)
-    .attr("stroke", l =>
-      l.source.id === d.id || l.target.id === d.id
-        ? "rgba(148,163,184,0.5)" : "rgba(100,116,139,0.08)")
-    .attr("stroke-width", l =>
-      l.source.id === d.id || l.target.id === d.id ? 2 : 0.8);
+    .attr("stroke", l => isConn(l) ? "rgba(167,180,200,0.7)" : "rgba(100,116,139,0.06)")
+    .attr("stroke-width", l => isConn(l) ? 2.5 : baseLinkWidth() * 0.6);
 
-  // Dim unconnected nodes
   const connectedIds = new Set();
   connectedIds.add(d.id);
   data.links.forEach(l => {
@@ -536,7 +540,6 @@ node.on("mouseover", function(event, d) {
   node.transition().duration(200)
     .attr("opacity", n => connectedIds.has(n.id) ? 1 : 0.2);
 
-  // Tooltip
   const tooltip = document.getElementById("tooltip");
   tooltip.textContent = d.label.replace("\n", " ");
   tooltip.style.left = (event.clientX + 16) + "px";
@@ -555,8 +558,8 @@ node.on("mouseover", function(event, d) {
     .attr("stroke-width", d => d.type === "category" ? 2 : 1.5);
 
   link.transition().duration(300)
-    .attr("stroke", "rgba(100,116,139,0.15)")
-    .attr("stroke-width", 1.2);
+    .attr("stroke", baseLinkStroke())
+    .attr("stroke-width", baseLinkWidth());
 
   node.transition().duration(300)
     .attr("opacity", 1);
@@ -703,6 +706,8 @@ document.querySelectorAll(".filter-btn").forEach(btn => {
       });
 
     link.transition().duration(400)
+      .attr("stroke", baseLinkStroke())
+      .attr("stroke-width", baseLinkWidth())
       .attr("stroke-opacity", l => {
         if (filter === "all") return 1;
         const s = l.source;
