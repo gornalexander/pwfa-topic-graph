@@ -447,8 +447,9 @@ function applyForceLayout() {
 
 const simulation = d3.forceSimulation(data.nodes).stop();
 applyForceLayout();
-// Pre-settle so the graph loads stationary — avoids nodes drifting out from
-// under the cursor (which would fire spurious mouseout) right after load.
+// Pre-settle synchronously so the graph loads stationary. If it animated into
+// place, a node could drift out from under the cursor during an early hover,
+// firing a spurious mouseleave and dropping the highlight ("dim then bright").
 simulation.tick(300);
 
 // ============================================================
@@ -523,7 +524,7 @@ function baseLinkWidth() { return 1.2; }
 // Hover interactions
 // ============================================================
 
-node.on("mouseover", function(event, d) {
+node.on("mouseenter", function(event, d) {
   d3.select(this).select(".node-circle")
     .transition().duration(200)
     .attr("stroke-opacity", 1)
@@ -569,7 +570,7 @@ node.on("mouseover", function(event, d) {
   tooltip.style.left = (event.clientX + 16) + "px";
   tooltip.style.top = (event.clientY - 8) + "px";
 })
-.on("mouseout", function() {
+.on("mouseleave", function() {
   d3.select(this).select(".node-circle")
     .transition().duration(300)
     .attr("stroke-opacity", d => d.type === "category" ? 0.8 : 0.5)
