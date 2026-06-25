@@ -796,15 +796,10 @@ function treePositions() {
 function switchToTree() {
   const pos = treePositions();
   data.nodes.forEach(d => {
-    d.x = d.fx = pos[d.id].x;
-    d.y = d.fy = pos[d.id].y;
+    d.fx = pos[d.id].x;
+    d.fy = pos[d.id].y;
   });
-  link.attr("stroke", baseLinkStroke()).attr("stroke-width", baseLinkWidth()).attr("stroke-opacity", 1);
-  node.attr("transform", d => `translate(${d.x},${d.y})`);
-  link
-    .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
-    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-  simulation.alphaTarget(0.05).restart();
+  simulation.alphaTarget(0.3).alphaDecay(0.01).restart();
 }
 
 function switchToForce() {
