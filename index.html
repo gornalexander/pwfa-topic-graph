@@ -310,13 +310,15 @@
 <script src="papers.js"></script>
 <script src="topics.js"></script>
 <script>
-// Resolve paperIds -> paper objects from the database
+// Resolve paperIds -> paper objects; build links from per-node sources
 const data = {
-  nodes: topics.nodes.map(node => ({
+  nodes: topics.map(node => ({
     ...node,
     papers: (node.paperIds || []).map(id => papers[id]).filter(Boolean),
   })),
-  links: topics.links.slice(),
+  links: topics.flatMap(node =>
+    (node.sources || []).map(s => ({ source: s.id, target: node.id, type: s.type }))
+  ),
 };
 
 // Color scheme
