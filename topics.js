@@ -64,7 +64,10 @@ const topics = [
     description: "A long proton bunch (σ_z ≫ λ_pe) undergoes transverse self-modulation instability in plasma, splitting into a train of micro-bunches spaced at the plasma wavelength. This is the key mechanism enabling proton-driven PWFA — it converts a single long bunch into a resonant driver.",
     paperIds: ["PRL.104.255003", "PoP.22.103110", "PoP.18.024501"],
     openQuestions: null,
-    sources: [{ id: "pwfa", type: "requires" }],
+    sources: [
+      { id: "pwfa", type: "requires" },
+      { id: "awake", type: "studies" },
+    ],
   },
   {
     id: "electron_injection",
