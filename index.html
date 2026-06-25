@@ -298,7 +298,7 @@
   <button class="filter-btn" data-filter="simulation">Simulation</button>
   <button class="filter-btn" data-filter="unsolved">Open Problems</button>
   <div style="width:1px;height:20px;background:rgba(100,116,139,0.3);margin:0 4px"></div>
-  <button class="filter-btn" id="layout-toggle" data-layout="force">Tree View</button>
+  <button class="filter-btn layout-toggle" id="layout-toggle">Tree View</button>
 </div>
 
 <div id="info-panel">
@@ -692,9 +692,9 @@ function navigateToNode(id) {
 svg.on("click", () => closePanel());
 
 // Filter buttons
-document.querySelectorAll(".filter-btn").forEach(btn => {
+document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".filter-btn[data-filter]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     const filter = btn.dataset.filter;
 
