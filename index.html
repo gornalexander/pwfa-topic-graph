@@ -522,7 +522,7 @@ node.on("mouseover", function(event, d) {
     .attr("stroke-opacity", 1)
     .attr("stroke-width", d.type === "category" ? 3 : 2.5);
 
-  // Walk upward through sources to rank-0, collecting path nodes and links
+  // Walk upward through sources to rank-0
   const pathNodeIds = new Set();
   const pathLinkKeys = new Set();
   function walkUp(nodeId) {
@@ -539,14 +539,19 @@ node.on("mouseover", function(event, d) {
   }
   walkUp(d.id);
 
-  // Also highlight direct neighbors (including downstream)
-  const connectedIds = new Set(pathNodeIds);
-  data.links.forEach(l => {
-    const sid = l.source.id || l.source;
-    const tid = l.target.id || l.target;
-    if (sid === d.id) { connectedIds.add(tid); pathLinkKeys.add(sid + "->" + tid); }
-    if (tid === d.id) { connectedIds.add(sid); pathLinkKeys.add(sid + "->" + tid); }
-  });
+  // Walk downward through children to highest rank
+  function walkDown(nodeId) {
+    data.links.forEach(l => {
+      const sid = l.source.id || l.source;
+      const tid = l.target.id || l.target;
+      if (sid === nodeId && !pathNodeIds.has(tid)) {
+        pathNodeIds.add(tid);
+        pathLinkKeys.add(sid + "->" + tid);
+        walkDown(tid);
+      }
+    });
+  }
+  walkDown(d.id);
 
   const isHighlighted = l => pathLinkKeys.has((l.source.id || l.source) + "->" + (l.target.id || l.target));
   link.transition().duration(200)
@@ -554,7 +559,7 @@ node.on("mouseover", function(event, d) {
     .attr("stroke-width", l => isHighlighted(l) ? 2.5 : baseLinkWidth() * 0.6);
 
   node.transition().duration(200)
-    .attr("opacity", n => connectedIds.has(n.id) ? 1 : 0.2);
+    .attr("opacity", n => pathNodeIds.has(n.id) ? 1 : 0.2);
 
   const tooltip = document.getElementById("tooltip");
   tooltip.textContent = d.label.replace("\n", " ");
