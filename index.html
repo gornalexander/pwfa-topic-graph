@@ -625,8 +625,9 @@ function dragged(event, d) {
   d.fy = event.y;
 }
 function dragended(event, d) {
-  if (!event.active) simulation.alphaTarget(currentLayout === "tree" ? 0.05 : 0);
-  if (currentLayout === "force") { d.fx = null; d.fy = null; }
+  if (!event.active) simulation.alphaTarget(0);
+  d.fx = null;
+  d.fy = null;
 }
 
 // Panel
@@ -795,17 +796,32 @@ function treePositions() {
 
 function switchToTree() {
   const pos = treePositions();
-  data.nodes.forEach(d => {
-    d.fx = pos[d.id].x;
-    d.fy = pos[d.id].y;
-  });
-  simulation.alphaTarget(0.3).alphaDecay(0.01).restart();
+  simulation
+    .force("treeX", d3.forceX(d => pos[d.id].x).strength(0.15))
+    .force("treeY", d3.forceY(d => pos[d.id].y).strength(0.15))
+    .force("charge", d3.forceManyBody().strength(-20))
+    .force("link", null)
+    .force("center", null)
+    .force("x", null)
+    .force("y", null)
+    .alpha(0.6).alphaDecay(0.015).alphaTarget(0).restart();
 }
 
 function switchToForce() {
   data.nodes.forEach(d => { d.fx = null; d.fy = null; });
-  link.attr("stroke", baseLinkStroke()).attr("stroke-width", baseLinkWidth()).attr("stroke-opacity", 1);
-  simulation.alphaTarget(0).alpha(0.15).alphaDecay(0.008).restart();
+  simulation
+    .force("treeX", null)
+    .force("treeY", null)
+    .force("link", d3.forceLink(data.links).id(d => d.id).distance(d => {
+      const s = data.nodes.find(n => n.id === (d.source.id || d.source));
+      const t = data.nodes.find(n => n.id === (d.target.id || d.target));
+      return (s ? s.size : 14) + (t ? t.size : 14) + 60;
+    }))
+    .force("charge", d3.forceManyBody().strength(d => d.type === "category" ? -800 : -400))
+    .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2))
+    .force("x", d3.forceX(window.innerWidth / 2).strength(0.04))
+    .force("y", d3.forceY(window.innerHeight / 2).strength(0.04))
+    .alpha(0.6).alphaDecay(0.015).alphaTarget(0).restart();
 }
 
 document.getElementById("layout-toggle").addEventListener("click", function() {
