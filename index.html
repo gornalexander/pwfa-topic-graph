@@ -313,15 +313,16 @@
 <script src="papers.js"></script>
 <script src="topics.js"></script>
 <script>
-// Compute rank via BFS from rank-0 nodes, then derive size/type
+// ============================================================
+// Data preparation
+// ============================================================
+
+// Rank = shortest directed path (following sources upward) to a rank-0 node.
+// BFS from rank-0 roots along source->child edges.
 function computeRanks(nodes) {
-  const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
-  const adj = Object.fromEntries(nodes.map(n => [n.id, []]));
+  const children = new Map(nodes.map(n => [n.id, []]));
   for (const n of nodes) {
-    for (const s of n.sources || []) {
-      adj[s.id]?.push(n.id);
-      adj[n.id]?.push(s.id);
-    }
+    for (const s of n.sources || []) children.get(s.id)?.push(n.id);
   }
   const rank = {};
   const queue = [];
@@ -329,16 +330,24 @@ function computeRanks(nodes) {
     if (n.rank === 0) { rank[n.id] = 0; queue.push(n.id); }
   }
   for (let i = 0; i < queue.length; i++) {
-    for (const nb of adj[queue[i]]) {
-      if (!(nb in rank)) { rank[nb] = rank[queue[i]] + 1; queue.push(nb); }
+    const r = rank[queue[i]];
+    for (const c of children.get(queue[i]) || []) {
+      if (!(c in rank)) { rank[c] = r + 1; queue.push(c); }
     }
   }
-  for (const n of nodes) { if (!(n.id in rank)) rank[n.id] = 4; }
+  const maxR = Math.max(0, ...Object.values(rank));
+  for (const n of nodes) {
+    if (!(n.id in rank)) {
+      console.warn(`Disconnected node (no path to rank 0): ${n.id}`);
+      rank[n.id] = maxR + 1;
+    }
+  }
   return rank;
 }
 
 const ranks = computeRanks(topics);
 const rankToSize = rank => 36 / (1 + 0.4 * rank);
+
 const data = {
   nodes: topics.map(node => {
     const r = ranks[node.id];
@@ -355,7 +364,24 @@ const data = {
   ),
 };
 
-// Color scheme
+// Adjacency maps (built from string ids before the simulation mutates links).
+const nodeById = new Map(data.nodes.map(n => [n.id, n]));
+const incoming = new Map(data.nodes.map(n => [n.id, []])); // parents: who points to me
+const outgoing = new Map(data.nodes.map(n => [n.id, []])); // children: who I point to
+data.links.forEach(l => {
+  incoming.get(l.target)?.push({ id: l.source, type: l.type });
+  outgoing.get(l.source)?.push({ id: l.target, type: l.type });
+});
+
+// Helpers shared across pre/post-simulation link representations.
+const linkSrcId = l => (typeof l.source === "object" ? l.source.id : l.source);
+const linkTgtId = l => (typeof l.target === "object" ? l.target.id : l.target);
+const labelText = d => d.label.replace(/\n/g, " ");
+
+// ============================================================
+// Rendering setup
+// ============================================================
+
 const statusColors = {
   solved: "#34d399",
   partial: "#fbbf24",
@@ -363,15 +389,6 @@ const statusColors = {
   category: "#60a5fa"
 };
 
-const statusGlow = {
-  solved: "rgba(52,211,153,0.3)",
-  partial: "rgba(251,191,36,0.3)",
-  unsolved: "rgba(248,113,113,0.5)",
-  category: "rgba(96,165,250,0.3)"
-};
-
-// Setup SVG
-const container = document.getElementById("graph-container");
 const width = window.innerWidth;
 const height = window.innerHeight;
 
@@ -380,86 +397,68 @@ const svg = d3.select("#graph-container")
   .attr("width", width)
   .attr("height", height);
 
-// Defs for glows and gradients
 const defs = svg.append("defs");
 
-// Glow filters
-["solved", "partial", "unsolved", "category"].forEach(status => {
-  const filter = defs.append("filter")
-    .attr("id", `glow-${status}`)
-    .attr("x", "-50%").attr("y", "-50%")
-    .attr("width", "200%").attr("height", "200%");
-  filter.append("feGaussianBlur")
-    .attr("stdDeviation", status === "unsolved" ? 6 : 4)
-    .attr("result", "coloredBlur");
-  const feMerge = filter.append("feMerge");
-  feMerge.append("feMergeNode").attr("in", "coloredBlur");
-  feMerge.append("feMergeNode").attr("in", "SourceGraphic");
-});
-
-// Pulsing glow for unsolved
-const pulseFilter = defs.append("filter")
-  .attr("id", "glow-pulse")
-  .attr("x", "-80%").attr("y", "-80%")
-  .attr("width", "260%").attr("height", "260%");
-pulseFilter.append("feGaussianBlur")
-  .attr("stdDeviation", 8)
-  .attr("result", "coloredBlur");
-const pulseMerge = pulseFilter.append("feMerge");
-pulseMerge.append("feMergeNode").attr("in", "coloredBlur");
-pulseMerge.append("feMergeNode").attr("in", "SourceGraphic");
-
-// Arrow marker
-defs.append("marker")
-  .attr("id", "arrowhead")
-  .attr("viewBox", "0 -5 10 10")
-  .attr("refX", 20)
-  .attr("refY", 0)
-  .attr("markerWidth", 5)
-  .attr("markerHeight", 5)
-  .attr("orient", "auto")
-  .append("path")
-  .attr("d", "M0,-4L8,0L0,4")
-  .attr("fill", "rgba(100,116,139,0.3)");
+// Single soft-glow filter, applied only to category nodes (few of them).
+const glow = defs.append("filter")
+  .attr("id", "glow")
+  .attr("x", "-50%").attr("y", "-50%")
+  .attr("width", "200%").attr("height", "200%");
+glow.append("feGaussianBlur").attr("stdDeviation", 4).attr("result", "blur");
+const glowMerge = glow.append("feMerge");
+glowMerge.append("feMergeNode").attr("in", "blur");
+glowMerge.append("feMergeNode").attr("in", "SourceGraphic");
 
 // Zoom
 const g = svg.append("g");
-
 const zoom = d3.zoom()
   .scaleExtent([0.3, 4])
-  .on("zoom", (event) => {
-    g.attr("transform", event.transform);
-  });
-
+  .on("zoom", (event) => g.attr("transform", event.transform));
 svg.call(zoom);
-
-// Initial zoom to center
 svg.call(zoom.transform, d3.zoomIdentity.translate(width / 2, height / 2).scale(0.85).translate(-width / 2, -height / 2));
 
-// Simulation
-const simulation = d3.forceSimulation(data.nodes)
-  .force("link", d3.forceLink(data.links).id(d => d.id).distance(d => {
-    const s = data.nodes.find(n => n.id === (d.source.id || d.source));
-    const t = data.nodes.find(n => n.id === (d.target.id || d.target));
-    const sSize = s ? s.size : 14;
-    const tSize = t ? t.size : 14;
-    return sSize + tSize + 60;
-  }))
-  .force("charge", d3.forceManyBody().strength(d => d.type === "category" ? -800 : -400))
-  .force("center", d3.forceCenter(width / 2, height / 2))
-  .force("collision", d3.forceCollide().radius(d => d.size + 20))
-  .force("x", d3.forceX(width / 2).strength(0.04))
-  .force("y", d3.forceY(height / 2).strength(0.04));
+// ============================================================
+// Force layout configuration (single source of truth)
+// ============================================================
 
-// Links
+function linkDistance(l) {
+  const s = nodeById.get(linkSrcId(l));
+  const t = nodeById.get(linkTgtId(l));
+  return (s ? s.size : 14) + (t ? t.size : 14) + 60;
+}
+
+function centerInGraphSpace() {
+  const t = d3.zoomTransform(svg.node());
+  return t.invert([window.innerWidth / 2, window.innerHeight / 2]);
+}
+
+function applyForceLayout() {
+  const [cx, cy] = centerInGraphSpace();
+  simulation
+    .force("treeX", null)
+    .force("treeY", null)
+    .force("link", d3.forceLink(data.links).id(d => d.id).distance(linkDistance))
+    .force("charge", d3.forceManyBody().strength(d => d.type === "category" ? -800 : -400))
+    .force("center", d3.forceCenter(cx, cy))
+    .force("collision", d3.forceCollide().radius(d => d.size + 20))
+    .force("x", d3.forceX(cx).strength(0.04))
+    .force("y", d3.forceY(cy).strength(0.04));
+}
+
+const simulation = d3.forceSimulation(data.nodes);
+applyForceLayout();
+
+// ============================================================
+// Draw links and nodes
+// ============================================================
+
 const link = g.append("g")
   .selectAll("line")
   .data(data.links)
   .join("line")
-  .attr("stroke", "rgba(100,116,139,0.15)")
-  .attr("stroke-width", 1.2);
+  .attr("stroke", baseLinkStroke())
+  .attr("stroke-width", baseLinkWidth());
 
-// Node groups
 const node = g.append("g")
   .selectAll("g")
   .data(data.nodes)
@@ -470,15 +469,14 @@ const node = g.append("g")
     .on("drag", dragged)
     .on("end", dragended));
 
-// Outer glow circle (for unsolved: pulsing)
+// Halo ring (cheap, no per-node blur). Brighter + pulsing for unsolved.
 node.append("circle")
   .attr("class", "glow-ring")
-  .attr("r", d => d.size + 4)
+  .attr("r", d => d.size + 3)
   .attr("fill", "none")
   .attr("stroke", d => statusColors[d.status])
-  .attr("stroke-width", 2)
-  .attr("stroke-opacity", d => d.status === "unsolved" ? 0.6 : 0)
-  .attr("filter", d => d.status === "unsolved" ? "url(#glow-pulse)" : null);
+  .attr("stroke-width", 1.5)
+  .attr("stroke-opacity", d => d.status === "unsolved" ? 0.6 : 0.25);
 
 // Main circle
 node.append("circle")
@@ -493,7 +491,7 @@ node.append("circle")
   .attr("stroke", d => statusColors[d.status])
   .attr("stroke-width", d => d.type === "category" ? 2 : 1.5)
   .attr("stroke-opacity", d => d.type === "category" ? 0.8 : 0.5)
-  .attr("filter", d => `url(#glow-${d.status})`);
+  .attr("filter", d => d.type === "category" ? "url(#glow)" : null);
 
 // Labels
 node.each(function(d) {
@@ -511,49 +509,45 @@ node.each(function(d) {
   });
 });
 
-// Link style helpers
+// ============================================================
+// Link styling helpers
+// ============================================================
+
 function baseLinkStroke() { return "rgba(100,116,139,0.15)"; }
 function baseLinkWidth() { return 1.2; }
 
-// Interactions
+// ============================================================
+// Hover interactions
+// ============================================================
+
 node.on("mouseover", function(event, d) {
   d3.select(this).select(".node-circle")
     .transition().duration(200)
     .attr("stroke-opacity", 1)
     .attr("stroke-width", d.type === "category" ? 3 : 2.5);
 
-  // Walk upward through sources to rank-0
+  // Collect ancestors (up to rank 0) and descendants via adjacency maps.
   const pathNodeIds = new Set();
   const pathLinkKeys = new Set();
-  function walkUp(nodeId) {
-    if (pathNodeIds.has(nodeId)) return;
-    pathNodeIds.add(nodeId);
-    data.links.forEach(l => {
-      const sid = l.source.id || l.source;
-      const tid = l.target.id || l.target;
-      if (tid === nodeId) {
-        pathLinkKeys.add(sid + "->" + tid);
-        walkUp(sid);
+  (function walkUp(id) {
+    if (pathNodeIds.has(id)) return;
+    pathNodeIds.add(id);
+    for (const p of incoming.get(id) || []) {
+      pathLinkKeys.add(p.id + "->" + id);
+      walkUp(p.id);
+    }
+  })(d.id);
+  (function walkDown(id) {
+    for (const c of outgoing.get(id) || []) {
+      if (!pathNodeIds.has(c.id)) {
+        pathNodeIds.add(c.id);
+        pathLinkKeys.add(id + "->" + c.id);
+        walkDown(c.id);
       }
-    });
-  }
-  walkUp(d.id);
+    }
+  })(d.id);
 
-  // Walk downward through children to highest rank
-  function walkDown(nodeId) {
-    data.links.forEach(l => {
-      const sid = l.source.id || l.source;
-      const tid = l.target.id || l.target;
-      if (sid === nodeId && !pathNodeIds.has(tid)) {
-        pathNodeIds.add(tid);
-        pathLinkKeys.add(sid + "->" + tid);
-        walkDown(tid);
-      }
-    });
-  }
-  walkDown(d.id);
-
-  const isHighlighted = l => pathLinkKeys.has((l.source.id || l.source) + "->" + (l.target.id || l.target));
+  const isHighlighted = l => pathLinkKeys.has(linkSrcId(l) + "->" + linkTgtId(l));
   link.transition().duration(200)
     .attr("stroke", l => isHighlighted(l) ? "rgba(167,180,200,0.7)" : "rgba(100,116,139,0.06)")
     .attr("stroke-width", l => isHighlighted(l) ? 2.5 : baseLinkWidth() * 0.6);
@@ -562,7 +556,7 @@ node.on("mouseover", function(event, d) {
     .attr("opacity", n => pathNodeIds.has(n.id) ? 1 : 0.2);
 
   const tooltip = document.getElementById("tooltip");
-  tooltip.textContent = d.label.replace("\n", " ");
+  tooltip.textContent = labelText(d);
   tooltip.style.left = (event.clientX + 16) + "px";
   tooltip.style.top = (event.clientY - 8) + "px";
   tooltip.style.opacity = 1;
@@ -587,7 +581,7 @@ node.on("mouseover", function(event, d) {
   showPanel(d);
 });
 
-// Pulse animation for unsolved nodes
+// Pulse animation for unsolved nodes (ring only, no filter).
 function pulseUnsolved() {
   node.selectAll(".glow-ring")
     .filter(d => d.status === "unsolved")
@@ -598,23 +592,24 @@ function pulseUnsolved() {
     .transition()
     .duration(1500)
     .attr("stroke-opacity", 0.2)
-    .attr("r", d => d.size + 4)
+    .attr("r", d => d.size + 3)
     .on("end", pulseUnsolved);
 }
 pulseUnsolved();
 
-// Tick
+// ============================================================
+// Simulation tick + drag
+// ============================================================
+
 simulation.on("tick", () => {
   link
     .attr("x1", d => d.source.x)
     .attr("y1", d => d.source.y)
     .attr("x2", d => d.target.x)
     .attr("y2", d => d.target.y);
-
   node.attr("transform", d => `translate(${d.x},${d.y})`);
 });
 
-// Drag
 function dragstarted(event, d) {
   if (!event.active) simulation.alphaTarget(0.3).restart();
   d.fx = d.x;
@@ -630,7 +625,10 @@ function dragended(event, d) {
   d.fy = null;
 }
 
-// Panel
+// ============================================================
+// Info panel
+// ============================================================
+
 function showPanel(d) {
   const panel = document.getElementById("info-panel");
   const content = document.getElementById("panel-content");
@@ -640,7 +638,7 @@ function showPanel(d) {
 
   let html = `
     <div class="status-badge ${badgeClass}">${statusLabel}</div>
-    <h2>${d.label.replace("\n", " ")}</h2>
+    <h2>${labelText(d)}</h2>
     <div class="description">${d.description}</div>
   `;
 
@@ -659,33 +657,23 @@ function showPanel(d) {
     });
   }
 
-  // Connected nodes
-  const connected = [];
-  data.links.forEach(l => {
-    const sid = l.source.id || l.source;
-    const tid = l.target.id || l.target;
-    if (sid === d.id) {
-      const target = data.nodes.find(n => n.id === tid);
-      if (target) connected.push({ node: target, relation: l.type, direction: "→" });
-    }
-    if (tid === d.id) {
-      const source = data.nodes.find(n => n.id === sid);
-      if (source) connected.push({ node: source, relation: l.type, direction: "←" });
-    }
-  });
+  // Connections via adjacency maps.
+  const connected = [
+    ...(outgoing.get(d.id) || []).map(c => ({ node: nodeById.get(c.id), relation: c.type, direction: "→" })),
+    ...(incoming.get(d.id) || []).map(p => ({ node: nodeById.get(p.id), relation: p.type, direction: "←" })),
+  ].filter(c => c.node);
 
   if (connected.length > 0) {
     html += `<h3>Connections</h3>`;
     connected.forEach(c => {
-      html += `<div class="connected-item" onclick="navigateToNode('${c.node.id}')">
+      html += `<div class="connected-item" data-node-id="${c.node.id}">
         <div class="connected-dot" style="background:${statusColors[c.node.status]}"></div>
-        ${c.direction} ${c.node.label.replace("\n", " ")}
+        ${c.direction} ${labelText(c.node)}
         <span style="color:#475569;margin-left:auto;font-size:10px">${c.relation.replace(/_/g, " ")}</span>
       </div>`;
     });
   }
 
-  // Tags
   html += `<h3>Tags</h3><div style="display:flex;gap:4px;flex-wrap:wrap">`;
   d.tags.forEach(t => {
     html += `<span style="padding:2px 8px;background:rgba(51,65,85,0.5);border-radius:4px;font-size:11px;color:#94a3b8">${t}</span>`;
@@ -693,6 +681,9 @@ function showPanel(d) {
   html += `</div>`;
 
   content.innerHTML = html;
+  content.querySelectorAll(".connected-item").forEach(el => {
+    el.addEventListener("click", () => navigateToNode(el.dataset.nodeId));
+  });
   panel.classList.add("open");
 }
 
@@ -701,14 +692,16 @@ function closePanel() {
 }
 
 function navigateToNode(id) {
-  const n = data.nodes.find(d => d.id === id);
+  const n = nodeById.get(id);
   if (n) showPanel(n);
 }
 
-// Close panel on background click
 svg.on("click", () => closePanel());
 
-// Filter logic
+// ============================================================
+// Filters
+// ============================================================
+
 let activeFilter = "all";
 
 function myLevel(d) {
@@ -733,8 +726,7 @@ function filterNodeOpacity(d) {
 function filterLinkOpacity(l) {
   const f = activeFilter;
   if (f === "all") return 1;
-  const s = l.source;
-  const t = l.target;
+  const s = l.source, t = l.target;
   if (f === "unsolved") {
     return (s.status === "unsolved" || s.status === "partial" || t.status === "unsolved" || t.status === "partial") ? 1 : 0.05;
   }
@@ -761,18 +753,21 @@ document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
   });
 });
 
-// Helper
 function hexToRgb(hex) {
-  const r = parseInt(hex.slice(1,3), 16);
-  const g = parseInt(hex.slice(3,5), 16);
-  const b = parseInt(hex.slice(5,7), 16);
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
   return `${r},${g},${b}`;
 }
 
-// Layout toggle
+// ============================================================
+// Layout toggle (force <-> tree)
+// ============================================================
+
 let currentLayout = "force";
 
 function treePositions() {
+  const t = d3.zoomTransform(svg.node());
   const w = window.innerWidth;
   const h = window.innerHeight;
   const maxRank = d3.max(data.nodes, d => d.rank);
@@ -784,11 +779,12 @@ function treePositions() {
   });
   const positions = {};
   for (const [rank, nodes] of Object.entries(byRank)) {
-    const r = +rank;
-    const y = yStart + r * rowSpacing;
+    const y = yStart + (+rank) * rowSpacing;
     const gap = w / (nodes.length + 1);
     nodes.forEach((n, i) => {
-      positions[n.id] = { x: gap * (i + 1), y };
+      // Map screen coords to graph space so the tree fills the current viewport.
+      const [gx, gy] = t.invert([gap * (i + 1), y]);
+      positions[n.id] = { x: gx, y: gy };
     });
   }
   return positions;
@@ -797,31 +793,20 @@ function treePositions() {
 function switchToTree() {
   const pos = treePositions();
   simulation
-    .force("treeX", d3.forceX(d => pos[d.id].x).strength(0.15))
-    .force("treeY", d3.forceY(d => pos[d.id].y).strength(0.15))
-    .force("charge", d3.forceManyBody().strength(-20))
     .force("link", null)
     .force("center", null)
     .force("x", null)
     .force("y", null)
+    .force("charge", d3.forceManyBody().strength(-20))
+    .force("treeX", d3.forceX(d => pos[d.id].x).strength(0.15))
+    .force("treeY", d3.forceY(d => pos[d.id].y).strength(0.15))
     .alpha(0.6).alphaDecay(0.015).alphaTarget(0).restart();
 }
 
 function switchToForce() {
   data.nodes.forEach(d => { d.fx = null; d.fy = null; });
-  simulation
-    .force("treeX", null)
-    .force("treeY", null)
-    .force("link", d3.forceLink(data.links).id(d => d.id).distance(d => {
-      const s = data.nodes.find(n => n.id === (d.source.id || d.source));
-      const t = data.nodes.find(n => n.id === (d.target.id || d.target));
-      return (s ? s.size : 14) + (t ? t.size : 14) + 60;
-    }))
-    .force("charge", d3.forceManyBody().strength(d => d.type === "category" ? -800 : -400))
-    .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2))
-    .force("x", d3.forceX(window.innerWidth / 2).strength(0.04))
-    .force("y", d3.forceY(window.innerHeight / 2).strength(0.04))
-    .alpha(0.6).alphaDecay(0.015).alphaTarget(0).restart();
+  applyForceLayout();
+  simulation.alpha(0.6).alphaDecay(0.015).alphaTarget(0).restart();
 }
 
 document.getElementById("layout-toggle").addEventListener("click", function() {
@@ -838,12 +823,15 @@ document.getElementById("layout-toggle").addEventListener("click", function() {
   }
 });
 
+// ============================================================
 // Resize
+// ============================================================
+
 window.addEventListener("resize", () => {
   svg.attr("width", window.innerWidth).attr("height", window.innerHeight);
   if (currentLayout === "force") {
-    simulation.force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
-    simulation.alpha(0.3).restart();
+    const [cx, cy] = centerInGraphSpace();
+    simulation.force("center", d3.forceCenter(cx, cy)).alpha(0.3).restart();
   } else {
     switchToTree();
   }
