@@ -445,12 +445,8 @@ function applyForceLayout() {
     .force("y", d3.forceY(cy).strength(0.04));
 }
 
-const simulation = d3.forceSimulation(data.nodes).stop();
+const simulation = d3.forceSimulation(data.nodes);
 applyForceLayout();
-// Pre-settle synchronously so the graph loads stationary. If it animated into
-// place, a node could drift out from under the cursor during an early hover,
-// firing a spurious mouseleave and dropping the highlight ("dim then bright").
-simulation.tick(300);
 
 // ============================================================
 // Draw links and nodes
@@ -468,6 +464,7 @@ const node = g.append("g")
   .data(data.nodes)
   .join("g")
   .attr("cursor", "pointer")
+  .attr("opacity", 1)
   .call(d3.drag()
     .on("start", dragstarted)
     .on("drag", dragged)
@@ -605,16 +602,14 @@ pulseUnsolved();
 // Simulation tick + drag
 // ============================================================
 
-function ticked() {
+simulation.on("tick", () => {
   link
     .attr("x1", d => d.source.x)
     .attr("y1", d => d.source.y)
     .attr("x2", d => d.target.x)
     .attr("y2", d => d.target.y);
   node.attr("transform", d => `translate(${d.x},${d.y})`);
-}
-simulation.on("tick", ticked);
-ticked(); // render the pre-settled layout once
+});
 
 function dragstarted(event, d) {
   if (!event.active) simulation.alphaTarget(0.3).restart();
