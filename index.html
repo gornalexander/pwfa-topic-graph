@@ -297,6 +297,8 @@
   <button class="filter-btn" data-filter="experiment">Experiment</button>
   <button class="filter-btn" data-filter="simulation">Simulation</button>
   <button class="filter-btn" data-filter="unsolved">Open Problems</button>
+  <div style="width:1px;height:20px;background:rgba(100,116,139,0.3);margin:0 4px"></div>
+  <button class="filter-btn" id="layout-toggle" data-layout="force">Tree View</button>
 </div>
 
 <div id="info-panel">
@@ -722,11 +724,79 @@ function hexToRgb(hex) {
   return `${r},${g},${b}`;
 }
 
+// Layout toggle
+let currentLayout = "force";
+
+function treePositions() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const maxRank = d3.max(data.nodes, d => d.rank);
+  const rowSpacing = Math.min(160, (h - 160) / (maxRank + 1));
+  const yStart = 100;
+  const byRank = {};
+  data.nodes.forEach(d => {
+    (byRank[d.rank] = byRank[d.rank] || []).push(d);
+  });
+  const positions = {};
+  for (const [rank, nodes] of Object.entries(byRank)) {
+    const r = +rank;
+    const y = yStart + r * rowSpacing;
+    const gap = w / (nodes.length + 1);
+    nodes.forEach((n, i) => {
+      positions[n.id] = { x: gap * (i + 1), y };
+    });
+  }
+  return positions;
+}
+
+function switchToTree() {
+  simulation.stop();
+  const pos = treePositions();
+  data.nodes.forEach(d => {
+    d.fx = pos[d.id].x;
+    d.fy = pos[d.id].y;
+  });
+  node.transition().duration(800).ease(d3.easeCubicInOut)
+    .attr("transform", d => `translate(${d.fx},${d.fy})`);
+  link.transition().duration(800).ease(d3.easeCubicInOut)
+    .attr("x1", d => pos[d.source.id].x)
+    .attr("y1", d => pos[d.source.id].y)
+    .attr("x2", d => pos[d.target.id].x)
+    .attr("y2", d => pos[d.target.id].y);
+  setTimeout(() => {
+    data.nodes.forEach(d => { d.x = d.fx; d.y = d.fy; });
+    simulation.alpha(0).restart();
+  }, 850);
+}
+
+function switchToForce() {
+  data.nodes.forEach(d => { d.fx = null; d.fy = null; });
+  simulation.alpha(0.8).restart();
+}
+
+document.getElementById("layout-toggle").addEventListener("click", function() {
+  if (currentLayout === "force") {
+    currentLayout = "tree";
+    this.textContent = "Graph View";
+    this.classList.add("active");
+    switchToTree();
+  } else {
+    currentLayout = "force";
+    this.textContent = "Tree View";
+    this.classList.remove("active");
+    switchToForce();
+  }
+});
+
 // Resize
 window.addEventListener("resize", () => {
   svg.attr("width", window.innerWidth).attr("height", window.innerHeight);
-  simulation.force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
-  simulation.alpha(0.3).restart();
+  if (currentLayout === "force") {
+    simulation.force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+    simulation.alpha(0.3).restart();
+  } else {
+    switchToTree();
+  }
 });
 </script>
 </body>
