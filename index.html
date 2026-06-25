@@ -750,28 +750,17 @@ function treePositions() {
 }
 
 function switchToTree() {
-  simulation.stop();
   const pos = treePositions();
   data.nodes.forEach(d => {
     d.fx = pos[d.id].x;
     d.fy = pos[d.id].y;
   });
-  node.transition().duration(800).ease(d3.easeCubicInOut)
-    .attr("transform", d => `translate(${d.fx},${d.fy})`);
-  link.transition().duration(800).ease(d3.easeCubicInOut)
-    .attr("x1", d => pos[d.source.id].x)
-    .attr("y1", d => pos[d.source.id].y)
-    .attr("x2", d => pos[d.target.id].x)
-    .attr("y2", d => pos[d.target.id].y);
-  setTimeout(() => {
-    data.nodes.forEach(d => { d.x = d.fx; d.y = d.fy; });
-    simulation.alpha(0).restart();
-  }, 850);
+  simulation.alphaTarget(0.05).restart();
 }
 
 function switchToForce() {
   data.nodes.forEach(d => { d.fx = null; d.fy = null; });
-  simulation.alpha(0.8).restart();
+  simulation.alphaTarget(0).alpha(0.8).restart();
 }
 
 document.getElementById("layout-toggle").addEventListener("click", function() {
