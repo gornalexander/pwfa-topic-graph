@@ -115,7 +115,7 @@ const topics = [
     description: "A plasma with a hollow density profile (no plasma on axis) can accelerate electrons without transverse focusing-defocusing oscillations, potentially preserving beam emittance. Studied for proton-driven and multi-bunch schemes.",
     paperIds: ["PRAB.20.101301", "PoP.24.103114"],
     openQuestions: "Experimental demonstration and long-distance stability of hollow plasma channels.",
-    sources: [],
+    sources: [{ id: "pwfa", type: "related" }],
   },
   {
     id: "bunch_trains",
@@ -208,7 +208,7 @@ const topics = [
     description: "Conditions under which a relativistic particle bunch maintains transverse equilibrium in the wakefield focusing channel. Important for understanding beam propagation over long plasma lengths.",
     paperIds: ["PoP.24.023119"],
     openQuestions: null,
-    sources: [],
+    sources: [{ id: "pwfa", type: "related" }],
   },
   {
     id: "narrow_plasma",
