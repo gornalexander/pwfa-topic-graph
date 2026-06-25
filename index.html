@@ -251,6 +251,66 @@
   .filter-btn:hover { color: #e2e8f0; background: rgba(51,65,85,0.4); }
   .filter-btn.active { color: #fff; background: rgba(96,165,250,0.25); }
 
+  /* Search */
+  #search {
+    position: fixed;
+    top: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 340px;
+    max-width: 80vw;
+    z-index: 150;
+  }
+  #search-input {
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(100,116,139,0.25);
+    background: rgba(15,20,35,0.9);
+    color: #e2e8f0;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    backdrop-filter: blur(12px);
+    transition: border-color 0.15s;
+  }
+  #search-input::placeholder { color: #64748b; }
+  #search-input:focus { border-color: rgba(96,165,250,0.5); }
+  #search-results {
+    margin-top: 6px;
+    background: rgba(15,20,35,0.95);
+    border: 1px solid rgba(100,116,139,0.2);
+    border-radius: 10px;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    display: none;
+  }
+  #search-results.show { display: block; }
+  .search-result {
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #cbd5e1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.12s;
+  }
+  .search-result:hover, .search-result.active {
+    background: rgba(96,165,250,0.18);
+    color: #fff;
+  }
+  .search-result .sr-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .search-result .sr-sub {
+    margin-left: auto;
+    color: #64748b;
+    font-size: 10px;
+  }
+
   /* Tooltip */
   .tooltip {
     position: fixed;
@@ -290,6 +350,11 @@
 </div>
 
 <div id="graph-container"></div>
+
+<div id="search">
+  <input id="search-input" type="text" placeholder="Search topics, tags, papers…" autocomplete="off" spellcheck="false" />
+  <div id="search-results"></div>
+</div>
 
 <div id="filters">
   <button class="filter-btn active" data-filter="all">All</button>
@@ -712,18 +777,32 @@ function navigateToNode(id) {
   if (n) showPanel(n);
 }
 
-svg.on("click", () => closePanel());
+svg.on("click", () => {
+  closePanel();
+  if (typeof searchResults !== "undefined" && searchResults) searchResults.classList.remove("show");
+});
 
 // ============================================================
 // Filters
 // ============================================================
 
 let activeFilter = "all";
+let searchQuery = "";
 
 function myLevel(d) {
   if (d.papers.some(p => p.me === "first")) return "first";
   if (d.papers.some(p => p.me === "coauthor")) return "coauthor";
   return null;
+}
+
+function matchesSearch(d) {
+  const q = searchQuery;
+  if (!q) return true;
+  if (labelText(d).toLowerCase().includes(q)) return true;
+  if (d.description && d.description.toLowerCase().includes(q)) return true;
+  if (d.tags.some(t => t.toLowerCase().includes(q))) return true;
+  if (d.papers.some(p => (p.title + " " + p.ref).toLowerCase().includes(q))) return true;
+  return false;
 }
 
 function filterNodeOpacity(d) {
@@ -752,12 +831,22 @@ function filterLinkOpacity(l) {
   return (s.tags && s.tags.includes(f) && t.tags && t.tags.includes(f)) ? 1 : 0.05;
 }
 
+// View opacity: search (when active) takes priority over the active filter.
+function viewNodeOpacity(d) {
+  if (searchQuery) return matchesSearch(d) ? 1 : 0.1;
+  return filterNodeOpacity(d);
+}
+function viewLinkOpacity(l) {
+  if (searchQuery) return (matchesSearch(l.source) && matchesSearch(l.target)) ? 1 : 0.04;
+  return filterLinkOpacity(l);
+}
+
 function applyFilter(duration) {
-  node.transition().duration(duration).attr("opacity", filterNodeOpacity);
+  node.transition().duration(duration).attr("opacity", viewNodeOpacity);
   link.transition().duration(duration)
     .attr("stroke", baseLinkStroke())
     .attr("stroke-width", baseLinkWidth())
-    .attr("stroke-opacity", filterLinkOpacity);
+    .attr("stroke-opacity", viewLinkOpacity);
 }
 
 document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
@@ -765,8 +854,95 @@ document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
     document.querySelectorAll(".filter-btn[data-filter]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     activeFilter = btn.dataset.filter;
+    clearSearch();
     applyFilter(400);
   });
+});
+
+// ============================================================
+// Search
+// ============================================================
+
+const searchInput = document.getElementById("search-input");
+const searchResults = document.getElementById("search-results");
+let currentMatches = [];
+let activeResultIdx = -1;
+
+function focusNode(d) {
+  const t = d3.zoomIdentity
+    .translate(window.innerWidth / 2, window.innerHeight / 2)
+    .scale(1.3)
+    .translate(-d.x, -d.y);
+  svg.transition().duration(600).call(zoom.transform, t);
+  showPanel(d);
+}
+
+function renderResults() {
+  if (!searchQuery) {
+    searchResults.classList.remove("show");
+    searchResults.innerHTML = "";
+    return;
+  }
+  currentMatches = data.nodes
+    .filter(matchesSearch)
+    .sort((a, b) => a.rank - b.rank || labelText(a).localeCompare(labelText(b)))
+    .slice(0, 8);
+
+  if (!currentMatches.length) {
+    searchResults.innerHTML = `<div class="search-result" style="color:#64748b;cursor:default">No matches</div>`;
+    searchResults.classList.add("show");
+    return;
+  }
+  searchResults.innerHTML = currentMatches.map((d, i) =>
+    `<div class="search-result${i === activeResultIdx ? " active" : ""}" data-idx="${i}">
+       <div class="sr-dot" style="background:${statusColors[d.status]}"></div>
+       ${labelText(d)}
+       <span class="sr-sub">rank ${d.rank}</span>
+     </div>`).join("");
+  searchResults.classList.add("show");
+  searchResults.querySelectorAll(".search-result[data-idx]").forEach(el => {
+    el.addEventListener("click", () => selectResult(+el.dataset.idx));
+  });
+}
+
+function selectResult(i) {
+  const d = currentMatches[i];
+  if (!d) return;
+  focusNode(d);
+  searchResults.classList.remove("show");
+}
+
+function clearSearch() {
+  searchQuery = "";
+  searchInput.value = "";
+  currentMatches = [];
+  activeResultIdx = -1;
+  renderResults();
+}
+
+searchInput.addEventListener("input", () => {
+  searchQuery = searchInput.value.trim().toLowerCase();
+  activeResultIdx = -1;
+  applyFilter(200);
+  renderResults();
+});
+
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    activeResultIdx = Math.min(activeResultIdx + 1, currentMatches.length - 1);
+    renderResults();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    activeResultIdx = Math.max(activeResultIdx - 1, 0);
+    renderResults();
+  } else if (e.key === "Enter") {
+    selectResult(activeResultIdx >= 0 ? activeResultIdx : 0);
+  } else if (e.key === "Escape") {
+    clearSearch();
+    applyFilter(200);
+    searchInput.blur();
+  }
 });
 
 function hexToRgb(hex) {
