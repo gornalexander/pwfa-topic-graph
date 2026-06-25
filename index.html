@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PWFA Research Landscape</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0e1a;
+    color: #e0e4ef;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  #header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(10,14,26,0.95) 0%, rgba(10,14,26,0) 100%);
+    pointer-events: none;
+  }
+  #header > * { pointer-events: auto; }
+
+  #header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  #header .subtitle {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  #legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .legend-dot.solved { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.4); }
+  .legend-dot.partial { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.4); }
+  .legend-dot.unsolved { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.4); }
+  .legend-dot.category { background: #60a5fa; box-shadow: 0 0 6px rgba(96,165,250,0.4); }
+
+  #graph-container {
+    width: 100vw;
+    height: 100vh;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Info panel */
+  #info-panel {
+    position: fixed;
+    right: -420px;
+    top: 0;
+    width: 400px;
+    height: 100vh;
+    background: rgba(15,20,35,0.97);
+    border-left: 1px solid rgba(100,116,139,0.2);
+    backdrop-filter: blur(20px);
+    padding: 28px;
+    overflow-y: auto;
+    transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 200;
+  }
+  #info-panel.open { right: 0; }
+
+  #info-panel .close-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(100,116,139,0.3);
+    background: rgba(30,41,59,0.5);
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.15s;
+  }
+  #info-panel .close-btn:hover {
+    background: rgba(51,65,85,0.8);
+    color: #e2e8f0;
+  }
+
+  #info-panel .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  .status-badge.solved { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+  .status-badge.partial { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+  .status-badge.unsolved { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+  .status-badge.category-badge { background: rgba(96,165,250,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+
+  #info-panel h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  #info-panel .description {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  #info-panel h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #64748b;
+    margin-bottom: 10px;
+    margin-top: 20px;
+  }
+
+  .paper-item {
+    padding: 10px 12px;
+    background: rgba(30,41,59,0.4);
+    border: 1px solid rgba(100,116,139,0.15);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    transition: background 0.15s;
+  }
+  .paper-item:hover { background: rgba(51,65,85,0.5); }
+  .paper-item .paper-title { color: #e2e8f0; font-weight: 500; }
+  .paper-item .paper-ref { color: #64748b; margin-top: 2px; font-size: 11px; }
+
+  .connected-item {
+    padding: 6px 10px;
+    background: rgba(30,41,59,0.3);
+    border: 1px solid rgba(100,116,139,0.12);
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .connected-item:hover { background: rgba(51,65,85,0.5); color: #e2e8f0; }
+  .connected-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .open-questions {
+    padding: 12px;
+    background: rgba(248,113,113,0.06);
+    border: 1px solid rgba(248,113,113,0.15);
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #fca5a5;
+  }
+
+  /* Filter buttons */
+  #filters {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: rgba(15,20,35,0.9);
+    border: 1px solid rgba(100,116,139,0.2);
+    border-radius: 12px;
+    padding: 4px;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .filter-btn {
+    padding: 7px 14px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { color: #e2e8f0; background: rgba(51,65,85,0.4); }
+  .filter-btn.active { color: #fff; background: rgba(96,165,250,0.25); }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    padding: 6px 12px;
+    background: rgba(15,20,35,0.95);
+    border: 1px solid rgba(100,116,139,0.3);
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: inherit;
+    color: #e2e8f0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 300;
+    white-space: nowrap;
+  }
+
+  /* Scrollbar */
+  #info-panel::-webkit-scrollbar { width: 4px; }
+  #info-panel::-webkit-scrollbar-track { background: transparent; }
+  #info-panel::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1>Proton-Driven Plasma Wakefield Acceleration</h1>
+    <div class="subtitle">Interactive Research Landscape &mdash; based on BINP &amp; AWAKE publications</div>
+  </div>
+  <div id="legend">
+    <div class="legend-item"><div class="legend-dot solved"></div> Well understood</div>
+    <div class="legend-item"><div class="legend-dot partial"></div> Partially solved</div>
+    <div class="legend-item"><div class="legend-dot unsolved"></div> Open problem</div>
+    <div class="legend-item"><div class="legend-dot category"></div> Category</div>
+  </div>
+</div>
+
+<div id="graph-container"></div>
+
+<div id="filters">
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="theory">Theory</button>
+  <button class="filter-btn" data-filter="experiment">Experiment</button>
+  <button class="filter-btn" data-filter="simulation">Simulation</button>
+  <button class="filter-btn" data-filter="unsolved">Open Problems</button>
+</div>
+
+<div id="info-panel">
+  <button class="close-btn" onclick="closePanel()">&times;</button>
+  <div id="panel-content"></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const data = {
+  nodes: [
+    // === CATEGORY NODES (hubs) ===
+    {
+      id: "pwfa",
+      label: "Proton-Driven\nPWFA",
+      type: "category",
+      status: "category",
+      tags: ["theory", "experiment"],
+      description: "Using high-energy proton bunches to drive plasma wakefields for particle acceleration. The key advantage is the large energy stored in proton bunches from existing accelerators (e.g. SPS at CERN), enabling GeV-scale energy gain in a single plasma stage.",
+      papers: [
+        { title: "Proton-driven plasma wakefield acceleration: a path to the future of high-energy particle physics", ref: "Caldwell et al., Nature Phys. 5, 363 (2009)" },
+        { title: "Path to AWAKE: Evolution of the concept", ref: "Caldwell et al., NIMA 829, 3 (2016)" }
+      ],
+      openQuestions: null,
+      size: 28
+    },
+    {
+      id: "awake",
+      label: "AWAKE\nExperiment",
+      type: "category",
+      status: "category",
+      tags: ["experiment"],
+      description: "The Advanced Wakefield Experiment at CERN — the world's first proton-driven PWFA experiment. Uses 400 GeV proton bunches from the SPS co-propagating with a laser pulse through 10 m of rubidium vapor plasma (n₀ ~ 10¹⁴–10¹⁵ cm⁻³).",
+      papers: [
+        { title: "AWAKE, The Advanced Proton Driven Plasma Wakefield Acceleration Experiment at CERN", ref: "Gschwendtner et al., NIMA 829, 76 (2016)" },
+        { title: "AWAKE readiness for the study of the seeded self-modulation of a 400 GeV proton bunch", ref: "Muggli et al., PPCF 60, 014046 (2018)" },
+        { title: "Proton Beam Driven Plasma Wakefield Acceleration", ref: "Gschwendtner et al., Symmetry 14, 1680 (2022)" }
+      ],
+      openQuestions: null,
+      size: 26
+    },
+    {
+      id: "simulation",
+      label: "PIC\nSimulation",
+      type: "category",
+      status: "category",
+      tags: ["simulation"],
+      description: "Particle-in-cell simulation codes used to model plasma wakefield acceleration. LCODE is the primary quasistatic code developed at BINP for computationally heavy 2D axisymmetric PWFA problems.",
+      papers: [
+        { title: "LCODE: A parallel quasistatic code for computationally heavy problems of plasma wakefield acceleration", ref: "Sosedkin & Lotov, NIMA 829, 350 (2016)" },
+        { title: "Simulation of proton driven plasma wakefield acceleration", ref: "Lotov, PRSTAB 13, 041301 (2010)" }
+      ],
+      openQuestions: null,
+      size: 22
+    },
+
+    // === CORE PHYSICS TOPICS ===
+    {
+      id: "smi",
+      label: "Self-Modulation\nInstability",
+      type: "topic",
+      status: "solved",
+      tags: ["theory", "experiment", "simulation"],
+      description: "A long proton bunch (σ_z ≫ λ_pe) undergoes transverse self-modulation instability in plasma, splitting into a train of micro-bunches spaced at the plasma wavelength. This is the key mechanism enabling proton-driven PWFA — it converts a single long bunch into a resonant driver.",
+      papers: [
+        { title: "Self-modulation instability of a long proton bunch in plasmas", ref: "Kumar, Pukhov, Lotov, PRL 104, 255003 (2010)" },
+        { title: "Physics of beam self-modulation in plasma wakefield accelerators", ref: "Lotov, Phys. Plasmas 22, 103110 (2015)" },
+        { title: "Controlled self-modulation of high energy beams in a plasma", ref: "Lotov, Phys. Plasmas 18, 024501 (2011)" }
+      ],
+      openQuestions: null,
+      size: 22
+    },
+    {
+      id: "ssm",
+      label: "Seeded\nSelf-Modulation",
+      type: "topic",
+      status: "solved",
+      tags: ["theory", "experiment"],
+      description: "Using a relativistic ionization front (from a co-propagating laser pulse) to seed the self-modulation instability with a sharp, reproducible initial wakefield. This makes the SMI phase reproducible from event to event, which is essential for external electron injection.",
+      papers: [
+        { title: "Transition between Instability and Seeded Self-Modulation of a Relativistic Particle Bunch in Plasma", ref: "Batsch et al. (AWAKE), PRL 126, 164802 (2021)" },
+        { title: "Controlled Growth of the Self-Modulation of a Relativistic Proton Bunch in Plasma", ref: "Verra et al. (AWAKE), PRL 129, 024802 (2022)" }
+      ],
+      openQuestions: null,
+      size: 18
+    },
+    {
+      id: "phase_reproducibility",
+      label: "Phase\nReproducibility",
+      type: "topic",
+      status: "solved",
+      tags: ["experiment"],
+      description: "Demonstrating that the wakefield phase is reproducible from event to event when the initial seeding amplitude is large enough (≳ 4 MV/m). With 3%–7% rms (of 2π) phase variations, this enables deterministic electron injection into the accelerating phase.",
+      papers: [
+        { title: "Proton Beam Self-Modulation Instability: Phase Reproducibility", ref: "Braunmüller et al. (AWAKE), PRL 125, 264801 (2020)" }
+      ],
+      openQuestions: null,
+      size: 14
+    },
+    {
+      id: "electron_accel",
+      label: "Electron\nAcceleration",
+      type: "topic",
+      status: "solved",
+      tags: ["experiment"],
+      description: "First demonstration of electron acceleration in proton-driven plasma wakefields. Electrons were accelerated up to 2 GeV in 10 m of plasma, consistent and reproducible across various plasma conditions. A milestone result published in Nature.",
+      papers: [
+        { title: "Acceleration of electrons in the plasma wakefield of a proton bunch", ref: "Adli et al. (AWAKE), Nature 561, 363 (2018)" }
+      ],
+      openQuestions: null,
+      size: 18
+    },
+    {
+      id: "electron_injection",
+      label: "Electron\nInjection",
+      type: "topic",
+      status: "partial",
+      tags: ["theory", "experiment", "simulation"],
+      description: "Injecting witness electrons into the correct accelerating and focusing phase of the wakefield. Requires precise timing relative to the SSM phase. Side injection at an optimum angle can improve trapping efficiency. Central challenge for AWAKE Run 2.",
+      papers: [
+        { title: "Electron trapping and acceleration by the plasma wakefield of a self-modulating proton beam", ref: "Lotov, Sosedkin, Petrenko et al., Phys. Plasmas 21, 123116 (2014)" },
+        { title: "Optimum angle for side injection of electrons into linear plasma wakefields", ref: "Lotov, J. Plasma Phys. 78, 455 (2012)" },
+        { title: "Electron Injection Studies for the AWAKE Experiment at CERN", ref: "Petrenko et al., Proc. IPAC 2014" }
+      ],
+      openQuestions: "Optimizing injection for high beam quality (low emittance, low energy spread) remains a key challenge for AWAKE Run 2.",
+      size: 16
+    },
+    {
+      id: "beam_quality",
+      label: "Accelerated\nBeam Quality",
+      type: "topic",
+      status: "partial",
+      tags: ["theory", "simulation"],
+      description: "Achieving low emittance, narrow energy spread, and high charge in the accelerated electron bunch. Beam loading, injection precision, and transverse wakefield effects all impact the final beam parameters. Critical for applications (e.g. fixed-target HEP).",
+      papers: [
+        { title: "Injection of a particle beam into a PWFA-driven plasma channel", ref: "Chappell et al., PRAB 24, 011301 (2021)" },
+        { title: "High-quality electron beam generation in a proton-driven hollow plasma wakefield accelerator", ref: "Li et al., PRAB 20, 101301 (2017)" }
+      ],
+      openQuestions: "Achieving %-level energy spread and μm-level emittance simultaneously at GeV energies is not yet demonstrated.",
+      size: 14
+    },
+    {
+      id: "defocusing",
+      label: "Proton Beam\nDefocusing",
+      type: "topic",
+      status: "solved",
+      tags: ["theory", "experiment", "simulation"],
+      description: "The transverse wakefield defocuses protons in the self-modulating beam. Defocused protons form a measurable halo on downstream screens, providing an indirect diagnostic of the SMI process. Simulations and measurements were compared in detail.",
+      papers: [
+        { title: "Proton beam defocusing in AWAKE: comparison of simulations and measurements", ref: "Gorn et al., PPCF 62, 125023 (2020)" },
+        { title: "Experimental Observation of Proton Bunch Modulation in a Plasma at Varying Plasma Densities", ref: "Turner et al., PRL 122, 054801 (2019)" }
+      ],
+      openQuestions: null,
+      size: 16
+    },
+    {
+      id: "two_screen",
+      label: "Two-Screen\nMeasurement",
+      type: "topic",
+      status: "solved",
+      tags: ["experiment"],
+      description: "Time-resolved measurement of the transversely-defocused protons using two downstream imaging stations. Provides information about the longitudinal wakefield structure and micro-bunch train formation.",
+      papers: [
+        { title: "Experimental study of wakefields driven by a self-modulating proton bunch in plasma", ref: "Turner et al., PRAB 23, 081302 (2020)" }
+      ],
+      openQuestions: null,
+      size: 12
+    },
+    {
+      id: "diagnostics",
+      label: "Wakefield\nDiagnostics",
+      type: "topic",
+      status: "partial",
+      tags: ["experiment", "simulation"],
+      description: "Methods to measure the wakefield amplitude, structure, and micro-bunch train. Includes optical and coherent transition radiation (CTR) diagnostics, but these are destructive to the accelerated beam. Non-destructive methods remain limited.",
+      papers: [
+        { title: "First Measurement of the Coherent Transition Radiation at the AWAKE Experiment", ref: "Hafych et al., JINST 16, P11031 (2021)" }
+      ],
+      openQuestions: "Wakefield-to-EM wave conversion efficiency in a waveguide: can the wakefield be non-destructively converted into measurable radiation?",
+      size: 14
+    },
+    {
+      id: "density_gradient",
+      label: "Plasma Density\nGradient",
+      type: "topic",
+      status: "partial",
+      tags: ["theory", "simulation"],
+      description: "Longitudinal plasma density gradients can prevent bunch destruction at the SMI saturation point and increase the maximum energy gain. A positive gradient keeps the wakefield travelling at the speed of light at the witness position, maintaining acceleration.",
+      papers: [
+        { title: "Numerical studies of electron acceleration behind self-modulating proton beam in plasma with a density gradient", ref: "Petrenko, Lotov, Sosedkin, NIMA 829, 63 (2016)" },
+        { title: "Effect of plasma inhomogeneity on plasma wakefield acceleration driven by long bunches", ref: "Lotov, Pukhov, Caldwell, Phys. Plasmas 20, 013102 (2013)" }
+      ],
+      openQuestions: "Optimum gradient profile (step vs. continuous) and tolerance to density fluctuations in experiment are open.",
+      size: 14
+    },
+    {
+      id: "phase_velocity",
+      label: "Phase Velocity\n& Dephasing",
+      type: "topic",
+      status: "partial",
+      tags: ["theory"],
+      description: "The phase velocity of the wakefield in the SMI regime is not exactly c — it evolves during the instability growth, leading to dephasing between the witness electrons and the accelerating bucket. Understanding and controlling this is important for high energy gain.",
+      papers: [
+        { title: "Phase Velocity and Particle Injection in a Self-Modulated Proton-Driven Plasma Wakefield Accelerator", ref: "Pukhov et al., PRL 107, 145003 (2011)" }
+      ],
+      openQuestions: "Precise control of phase velocity during the nonlinear SMI stage.",
+      size: 12
+    },
+    {
+      id: "emittance",
+      label: "Beam Emittance\nEffects",
+      type: "topic",
+      status: "solved",
+      tags: ["theory", "simulation"],
+      description: "Finite transverse emittance of the proton driver affects the SMI growth rate. When the beam size is comparable to or larger than the plasma skin depth, emittance effects become important and can suppress or modify the instability.",
+      papers: [
+        { title: "Effect of beam emittance on self-modulation of long beams in plasma wakefield accelerators", ref: "Lotov, Phys. Plasmas 22, 123107 (2015)" }
+      ],
+      openQuestions: null,
+      size: 12
+    },
+    {
+      id: "radial_equilibrium",
+      label: "Radial\nEquilibrium",
+      type: "topic",
+      status: "solved",
+      tags: ["theory"],
+      description: "Conditions under which a relativistic particle bunch maintains transverse equilibrium in the wakefield focusing channel. Important for understanding beam propagation over long plasma lengths.",
+      papers: [
+        { title: "Radial equilibrium of relativistic particle bunches in plasma wakefield accelerators", ref: "Lotov, Phys. Plasmas 24, 023119 (2017)" }
+      ],
+      openQuestions: null,
+      size: 10
+    },
+    {
+      id: "narrow_plasma",
+      label: "Narrow Plasma\nResponse",
+      type: "topic",
+      status: "solved",
+      tags: ["theory", "simulation"],
+      description: "When the plasma radius is comparable to the beam-driven blowout radius, plasma electrons are ejected beyond the boundary and the wakefield structure changes qualitatively. Electron flux through the boundary and field structure were studied in detail.",
+      papers: [
+        { title: "Response of narrow cylindrical plasmas to dense charged particle beams", ref: "Gorn, Tuev, Petrenko, Sosedkin, Lotov, Phys. Plasmas 25, 063108 (2018)" }
+      ],
+      openQuestions: null,
+      size: 14
+    },
+    {
+      id: "wavebreaking",
+      label: "Wavebreaking",
+      type: "topic",
+      status: "partial",
+      tags: ["theory", "simulation"],
+      description: "Breaking of the plasma wave occurs when electron trajectories cross, leading to electron jets escaping from the plasma column and formation of an electron halo. The wavebreaking position and its dependence on beam and plasma parameters are studied.",
+      papers: [
+        { title: "Long-Term Evolution of Broken Wakefields in Finite-Radius Plasmas", ref: "Lotov, Sosedkin, Petrenko, PRL 112, 194801 (2014)" },
+        { title: "Generation of plasma electron halo by a charged particle beam in a low density plasma", ref: "Gorn & Lotov, Phys. Plasmas 29, 023104 (2022)" }
+      ],
+      openQuestions: "Finding the exact wavebreaking location from plasma electron trajectories — analytical prediction of the onset point is not fully solved.",
+      size: 16
+    },
+    {
+      id: "electron_halo",
+      label: "Electron\nHalo",
+      type: "topic",
+      status: "partial",
+      tags: ["theory", "simulation"],
+      description: "Wavebreaking in a beam-driven plasma wave produces electron jets that escape the plasma column and form a halo with strong radial electric and azimuthal magnetic fields. The halo can degrade the accelerated beam quality. Mechanisms depend on whether beam density exceeds plasma density.",
+      papers: [
+        { title: "Generation of plasma electron halo by a charged particle beam in a low density plasma", ref: "Gorn & Lotov, Phys. Plasmas 29, 023104 (2022)" }
+      ],
+      openQuestions: "Halo formation mechanism when beam and plasma densities are comparable is not fully understood.",
+      size: 14
+    },
+    {
+      id: "bunch_trains",
+      label: "Stable Bunch\nTrains",
+      type: "topic",
+      status: "partial",
+      tags: ["theory"],
+      description: "Using pre-formed bunch trains (instead of relying on SMI) to drive wakefields resonantly. Can produce more stable and controllable acceleration but requires precise bunch spacing and charge distribution.",
+      papers: [
+        { title: "Stable bunch trains for plasma wakefield acceleration", ref: "Lotov, PPCF 60, 024002 (2018)" },
+        { title: "Excitation of two-dimensional plasma wakefields by trains of equidistant particle bunches", ref: "Lotov, Phys. Plasmas 20, 083108 (2013)" }
+      ],
+      openQuestions: "Experimental generation of sub-ps bunch trains with precise spacing at the plasma wavelength.",
+      size: 12
+    },
+    {
+      id: "noise_seeding",
+      label: "Noise &\nSeeding",
+      type: "topic",
+      status: "solved",
+      tags: ["theory", "simulation"],
+      description: "Natural shot noise in the proton beam provides initial perturbation for SMI growth. The noise amplitude and spectrum determine the instability onset and early evolution. External seeding (e.g., via a laser ionization front) overcomes the noise to produce reproducible modulation.",
+      papers: [
+        { title: "Natural noise and external wakefield seeding in a proton-driven plasma accelerator", ref: "Lotov et al., PRSTAB 16, 041301 (2013)" },
+        { title: "Generation of controllable plasma wakefield noise in particle-in-cell simulations", ref: "Moschüring et al., Phys. Plasmas 24, 103129 (2017)" }
+      ],
+      openQuestions: null,
+      size: 12
+    },
+    {
+      id: "hollow_plasma",
+      label: "Hollow Plasma\nChannel",
+      type: "topic",
+      status: "partial",
+      tags: ["theory", "simulation"],
+      description: "A plasma with a hollow density profile (no plasma on axis) can accelerate electrons without transverse focusing-defocusing oscillations, potentially preserving beam emittance. Studied for proton-driven and multi-bunch schemes.",
+      papers: [
+        { title: "High-quality electron beam generation in a proton-driven hollow plasma wakefield accelerator", ref: "Li et al., PRAB 20, 101301 (2017)" },
+        { title: "Multi-proton bunch driven hollow plasma wakefield acceleration in the nonlinear regime", ref: "Li et al., Phys. Plasmas 24, 103114 (2017)" }
+      ],
+      openQuestions: "Experimental demonstration and long-distance stability of hollow plasma channels.",
+      size: 12
+    },
+    {
+      id: "scalable_source",
+      label: "Scalable\ne⁻ Source",
+      type: "topic",
+      status: "partial",
+      tags: ["experiment"],
+      description: "AWAKE Run 2 goal: demonstrating a scalable plasma electron source by maintaining acceleration over long plasma distances with preserved beam quality. Requires density gradient control, precise injection, and emittance preservation.",
+      papers: [
+        { title: "Proton Beam Driven Plasma Wakefield Acceleration", ref: "Gschwendtner et al., Symmetry 14, 1680 (2022)" }
+      ],
+      openQuestions: "Full demonstration pending in AWAKE Run 2 (planned).",
+      size: 14
+    },
+    {
+      id: "density_ramps",
+      label: "Plasma Density\nRamps",
+      type: "topic",
+      status: "partial",
+      tags: ["experiment", "simulation"],
+      description: "Density ramps at the entrance/exit of the plasma cell (near the rubidium vapor irises) affect the wakefield excitation and can cause injection issues. The transition region from vacuum to nominal density must be minimized.",
+      papers: [
+        { title: "Generation of plasma electron halo by a charged particle beam in a low density plasma", ref: "Gorn & Lotov, Phys. Plasmas 29, 023104 (2022)" }
+      ],
+      openQuestions: "Effect of ramp shape on electron injection and acceleration quality.",
+      size: 10
+    },
+    {
+      id: "em_conversion",
+      label: "Wakefield → EM\nConversion",
+      type: "topic",
+      status: "unsolved",
+      tags: ["theory", "simulation"],
+      description: "Theoretical and computational study of converting plasma wakefield energy into electromagnetic radiation by inserting a waveguide structure into the plasma. Could enable non-destructive wakefield diagnostics.",
+      papers: [],
+      openQuestions: "Calculate the conversion efficiency of wakefield → EM wave in a waveguide, both analytically and numerically. Entirely open problem.",
+      size: 14
+    },
+    {
+      id: "wavebreaking_location",
+      label: "Wavebreaking\nLocation",
+      type: "topic",
+      status: "unsolved",
+      tags: ["theory"],
+      description: "Determining the exact longitudinal position where the plasma wave breaks (electron trajectory crossing) from first principles. Related to the plasma electron phase space structure and the driver beam parameters.",
+      papers: [
+        { title: "Generation of plasma electron halo by a charged particle beam in a low density plasma", ref: "Gorn & Lotov, Phys. Plasmas 29, 023104 (2022)" }
+      ],
+      openQuestions: "Analytical prediction of the wavebreaking onset position from plasma electron trajectories — an open theoretical problem.",
+      size: 14
+    },
+    {
+      id: "parameter_sensitivity",
+      label: "Parameter\nSensitivity",
+      type: "topic",
+      status: "solved",
+      tags: ["theory", "simulation"],
+      description: "How sensitive is the PWFA performance (energy gain, beam quality) to variations in plasma density, bunch population, beam size, and other parameters? Important for robust experimental design.",
+      papers: [
+        { title: "Parameter sensitivity of plasma wakefields driven by self-modulating proton beams", ref: "Lotov, Minakov, Sosedkin, Phys. Plasmas 21, 083107 (2014)" }
+      ],
+      openQuestions: null,
+      size: 10
+    }
+  ],
+
+  links: [
+    // PWFA hub connections
+    { source: "pwfa", target: "awake", type: "contains" },
+    { source: "pwfa", target: "smi", type: "requires" },
+    { source: "pwfa", target: "simulation", type: "uses" },
+    { source: "pwfa", target: "electron_accel", type: "enables" },
+
+    // SMI cluster
+    { source: "smi", target: "ssm", type: "enables" },
+    { source: "smi", target: "defocusing", type: "causes" },
+    { source: "smi", target: "noise_seeding", type: "requires" },
+    { source: "smi", target: "emittance", type: "affects" },
+    { source: "smi", target: "phase_velocity", type: "determines" },
+    { source: "smi", target: "bunch_trains", type: "alternative" },
+    { source: "smi", target: "parameter_sensitivity", type: "related" },
+
+    // SSM → phase
+    { source: "ssm", target: "phase_reproducibility", type: "enables" },
+    { source: "ssm", target: "noise_seeding", type: "overcomes" },
+
+    // Acceleration chain
+    { source: "phase_reproducibility", target: "electron_injection", type: "enables" },
+    { source: "electron_injection", target: "electron_accel", type: "enables" },
+    { source: "electron_accel", target: "beam_quality", type: "determines" },
+    { source: "electron_accel", target: "scalable_source", type: "leads_to" },
+
+    // Defocusing branch
+    { source: "defocusing", target: "two_screen", type: "measured_by" },
+    { source: "defocusing", target: "diagnostics", type: "related" },
+
+    // Wavebreaking cluster
+    { source: "wavebreaking", target: "electron_halo", type: "causes" },
+    { source: "wavebreaking", target: "wavebreaking_location", type: "open_question" },
+    { source: "wavebreaking", target: "narrow_plasma", type: "related" },
+    { source: "electron_halo", target: "beam_quality", type: "degrades" },
+
+    // Density effects
+    { source: "density_gradient", target: "electron_accel", type: "improves" },
+    { source: "density_gradient", target: "phase_velocity", type: "controls" },
+    { source: "density_ramps", target: "electron_injection", type: "affects" },
+    { source: "density_ramps", target: "density_gradient", type: "related" },
+
+    // Diagnostics
+    { source: "diagnostics", target: "em_conversion", type: "open_question" },
+    { source: "diagnostics", target: "two_screen", type: "includes" },
+
+    // Hollow channel
+    { source: "hollow_plasma", target: "beam_quality", type: "improves" },
+    { source: "hollow_plasma", target: "electron_accel", type: "alternative" },
+
+    // Radial equilibrium
+    { source: "radial_equilibrium", target: "electron_injection", type: "constrains" },
+    { source: "radial_equilibrium", target: "narrow_plasma", type: "related" },
+
+    // AWAKE connections
+    { source: "awake", target: "ssm", type: "demonstrates" },
+    { source: "awake", target: "electron_accel", type: "demonstrates" },
+    { source: "awake", target: "defocusing", type: "measures" },
+    { source: "awake", target: "scalable_source", type: "plans" },
+    { source: "awake", target: "diagnostics", type: "uses" },
+    { source: "awake", target: "density_ramps", type: "affected_by" },
+
+    // Simulation connections
+    { source: "simulation", target: "smi", type: "models" },
+    { source: "simulation", target: "wavebreaking", type: "models" },
+    { source: "simulation", target: "defocusing", type: "models" },
+    { source: "simulation", target: "narrow_plasma", type: "models" },
+  ]
+};
+
+// Color scheme
+const statusColors = {
+  solved: "#34d399",
+  partial: "#fbbf24",
+  unsolved: "#f87171",
+  category: "#60a5fa"
+};
+
+const statusGlow = {
+  solved: "rgba(52,211,153,0.3)",
+  partial: "rgba(251,191,36,0.3)",
+  unsolved: "rgba(248,113,113,0.5)",
+  category: "rgba(96,165,250,0.3)"
+};
+
+// Setup SVG
+const container = document.getElementById("graph-container");
+const width = window.innerWidth;
+const height = window.innerHeight;
+
+const svg = d3.select("#graph-container")
+  .append("svg")
+  .attr("width", width)
+  .attr("height", height);
+
+// Defs for glows and gradients
+const defs = svg.append("defs");
+
+// Glow filters
+["solved", "partial", "unsolved", "category"].forEach(status => {
+  const filter = defs.append("filter")
+    .attr("id", `glow-${status}`)
+    .attr("x", "-50%").attr("y", "-50%")
+    .attr("width", "200%").attr("height", "200%");
+  filter.append("feGaussianBlur")
+    .attr("stdDeviation", status === "unsolved" ? 6 : 4)
+    .attr("result", "coloredBlur");
+  const feMerge = filter.append("feMerge");
+  feMerge.append("feMergeNode").attr("in", "coloredBlur");
+  feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+});
+
+// Pulsing glow for unsolved
+const pulseFilter = defs.append("filter")
+  .attr("id", "glow-pulse")
+  .attr("x", "-80%").attr("y", "-80%")
+  .attr("width", "260%").attr("height", "260%");
+pulseFilter.append("feGaussianBlur")
+  .attr("stdDeviation", 8)
+  .attr("result", "coloredBlur");
+const pulseMerge = pulseFilter.append("feMerge");
+pulseMerge.append("feMergeNode").attr("in", "coloredBlur");
+pulseMerge.append("feMergeNode").attr("in", "SourceGraphic");
+
+// Arrow marker
+defs.append("marker")
+  .attr("id", "arrowhead")
+  .attr("viewBox", "0 -5 10 10")
+  .attr("refX", 20)
+  .attr("refY", 0)
+  .attr("markerWidth", 5)
+  .attr("markerHeight", 5)
+  .attr("orient", "auto")
+  .append("path")
+  .attr("d", "M0,-4L8,0L0,4")
+  .attr("fill", "rgba(100,116,139,0.3)");
+
+// Zoom
+const g = svg.append("g");
+
+const zoom = d3.zoom()
+  .scaleExtent([0.3, 4])
+  .on("zoom", (event) => {
+    g.attr("transform", event.transform);
+  });
+
+svg.call(zoom);
+
+// Initial zoom to center
+svg.call(zoom.transform, d3.zoomIdentity.translate(width / 2, height / 2).scale(0.85).translate(-width / 2, -height / 2));
+
+// Simulation
+const simulation = d3.forceSimulation(data.nodes)
+  .force("link", d3.forceLink(data.links).id(d => d.id).distance(d => {
+    const s = data.nodes.find(n => n.id === (d.source.id || d.source));
+    const t = data.nodes.find(n => n.id === (d.target.id || d.target));
+    const sSize = s ? s.size : 14;
+    const tSize = t ? t.size : 14;
+    return sSize + tSize + 60;
+  }))
+  .force("charge", d3.forceManyBody().strength(d => d.type === "category" ? -800 : -400))
+  .force("center", d3.forceCenter(width / 2, height / 2))
+  .force("collision", d3.forceCollide().radius(d => d.size + 20))
+  .force("x", d3.forceX(width / 2).strength(0.04))
+  .force("y", d3.forceY(height / 2).strength(0.04));
+
+// Links
+const link = g.append("g")
+  .selectAll("line")
+  .data(data.links)
+  .join("line")
+  .attr("stroke", "rgba(100,116,139,0.15)")
+  .attr("stroke-width", 1.2);
+
+// Node groups
+const node = g.append("g")
+  .selectAll("g")
+  .data(data.nodes)
+  .join("g")
+  .attr("cursor", "pointer")
+  .call(d3.drag()
+    .on("start", dragstarted)
+    .on("drag", dragged)
+    .on("end", dragended));
+
+// Outer glow circle (for unsolved: pulsing)
+node.append("circle")
+  .attr("class", "glow-ring")
+  .attr("r", d => d.size + 4)
+  .attr("fill", "none")
+  .attr("stroke", d => statusColors[d.status])
+  .attr("stroke-width", 2)
+  .attr("stroke-opacity", d => d.status === "unsolved" ? 0.6 : 0)
+  .attr("filter", d => d.status === "unsolved" ? "url(#glow-pulse)" : null);
+
+// Main circle
+node.append("circle")
+  .attr("class", "node-circle")
+  .attr("r", d => d.size)
+  .attr("fill", d => {
+    const c = statusColors[d.status];
+    return d.type === "category"
+      ? `rgba(${hexToRgb(c)}, 0.15)`
+      : `rgba(${hexToRgb(c)}, 0.08)`;
+  })
+  .attr("stroke", d => statusColors[d.status])
+  .attr("stroke-width", d => d.type === "category" ? 2 : 1.5)
+  .attr("stroke-opacity", d => d.type === "category" ? 0.8 : 0.5)
+  .attr("filter", d => `url(#glow-${d.status})`);
+
+// Labels
+node.each(function(d) {
+  const lines = d.label.split("\n");
+  const el = d3.select(this);
+  lines.forEach((line, i) => {
+    el.append("text")
+      .attr("text-anchor", "middle")
+      .attr("dy", `${(i - (lines.length - 1) / 2) * 1.15}em`)
+      .attr("font-size", d.type === "category" ? "11px" : "9.5px")
+      .attr("font-weight", d.type === "category" ? 600 : 500)
+      .attr("fill", "#e2e8f0")
+      .attr("pointer-events", "none")
+      .text(line);
+  });
+});
+
+// Interactions
+node.on("mouseover", function(event, d) {
+  d3.select(this).select(".node-circle")
+    .transition().duration(200)
+    .attr("stroke-opacity", 1)
+    .attr("stroke-width", d.type === "category" ? 3 : 2.5);
+
+  // Highlight connected links
+  link.transition().duration(200)
+    .attr("stroke", l =>
+      l.source.id === d.id || l.target.id === d.id
+        ? "rgba(148,163,184,0.5)" : "rgba(100,116,139,0.08)")
+    .attr("stroke-width", l =>
+      l.source.id === d.id || l.target.id === d.id ? 2 : 0.8);
+
+  // Dim unconnected nodes
+  const connectedIds = new Set();
+  connectedIds.add(d.id);
+  data.links.forEach(l => {
+    if ((l.source.id || l.source) === d.id) connectedIds.add(l.target.id || l.target);
+    if ((l.target.id || l.target) === d.id) connectedIds.add(l.source.id || l.source);
+  });
+
+  node.transition().duration(200)
+    .attr("opacity", n => connectedIds.has(n.id) ? 1 : 0.2);
+
+  // Tooltip
+  const tooltip = document.getElementById("tooltip");
+  tooltip.textContent = d.label.replace("\n", " ");
+  tooltip.style.left = (event.clientX + 16) + "px";
+  tooltip.style.top = (event.clientY - 8) + "px";
+  tooltip.style.opacity = 1;
+})
+.on("mousemove", function(event) {
+  const tooltip = document.getElementById("tooltip");
+  tooltip.style.left = (event.clientX + 16) + "px";
+  tooltip.style.top = (event.clientY - 8) + "px";
+})
+.on("mouseout", function() {
+  d3.select(this).select(".node-circle")
+    .transition().duration(300)
+    .attr("stroke-opacity", d => d.type === "category" ? 0.8 : 0.5)
+    .attr("stroke-width", d => d.type === "category" ? 2 : 1.5);
+
+  link.transition().duration(300)
+    .attr("stroke", "rgba(100,116,139,0.15)")
+    .attr("stroke-width", 1.2);
+
+  node.transition().duration(300)
+    .attr("opacity", 1);
+
+  document.getElementById("tooltip").style.opacity = 0;
+})
+.on("click", function(event, d) {
+  event.stopPropagation();
+  showPanel(d);
+});
+
+// Pulse animation for unsolved nodes
+function pulseUnsolved() {
+  node.selectAll(".glow-ring")
+    .filter(d => d.status === "unsolved")
+    .transition()
+    .duration(1500)
+    .attr("stroke-opacity", 0.8)
+    .attr("r", d => d.size + 8)
+    .transition()
+    .duration(1500)
+    .attr("stroke-opacity", 0.2)
+    .attr("r", d => d.size + 4)
+    .on("end", pulseUnsolved);
+}
+pulseUnsolved();
+
+// Tick
+simulation.on("tick", () => {
+  link
+    .attr("x1", d => d.source.x)
+    .attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x)
+    .attr("y2", d => d.target.y);
+
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+// Drag
+function dragstarted(event, d) {
+  if (!event.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x;
+  d.fy = d.y;
+}
+function dragged(event, d) {
+  d.fx = event.x;
+  d.fy = event.y;
+}
+function dragended(event, d) {
+  if (!event.active) simulation.alphaTarget(0);
+  d.fx = null;
+  d.fy = null;
+}
+
+// Panel
+function showPanel(d) {
+  const panel = document.getElementById("info-panel");
+  const content = document.getElementById("panel-content");
+
+  const statusLabel = {solved: "Well Understood", partial: "Partially Solved", unsolved: "Open Problem", category: "Category"}[d.status];
+  const badgeClass = d.status === "category" ? "category-badge" : d.status;
+
+  let html = `
+    <div class="status-badge ${badgeClass}">${statusLabel}</div>
+    <h2>${d.label.replace("\n", " ")}</h2>
+    <div class="description">${d.description}</div>
+  `;
+
+  if (d.openQuestions) {
+    html += `<h3>Open Questions</h3><div class="open-questions">${d.openQuestions}</div>`;
+  }
+
+  if (d.papers.length > 0) {
+    html += `<h3>Key Publications</h3>`;
+    d.papers.forEach(p => {
+      html += `<div class="paper-item"><div class="paper-title">${p.title}</div><div class="paper-ref">${p.ref}</div></div>`;
+    });
+  }
+
+  // Connected nodes
+  const connected = [];
+  data.links.forEach(l => {
+    const sid = l.source.id || l.source;
+    const tid = l.target.id || l.target;
+    if (sid === d.id) {
+      const target = data.nodes.find(n => n.id === tid);
+      if (target) connected.push({ node: target, relation: l.type, direction: "→" });
+    }
+    if (tid === d.id) {
+      const source = data.nodes.find(n => n.id === sid);
+      if (source) connected.push({ node: source, relation: l.type, direction: "←" });
+    }
+  });
+
+  if (connected.length > 0) {
+    html += `<h3>Connections</h3>`;
+    connected.forEach(c => {
+      html += `<div class="connected-item" onclick="navigateToNode('${c.node.id}')">
+        <div class="connected-dot" style="background:${statusColors[c.node.status]}"></div>
+        ${c.direction} ${c.node.label.replace("\n", " ")}
+        <span style="color:#475569;margin-left:auto;font-size:10px">${c.relation.replace(/_/g, " ")}</span>
+      </div>`;
+    });
+  }
+
+  // Tags
+  html += `<h3>Tags</h3><div style="display:flex;gap:4px;flex-wrap:wrap">`;
+  d.tags.forEach(t => {
+    html += `<span style="padding:2px 8px;background:rgba(51,65,85,0.5);border-radius:4px;font-size:11px;color:#94a3b8">${t}</span>`;
+  });
+  html += `</div>`;
+
+  content.innerHTML = html;
+  panel.classList.add("open");
+}
+
+function closePanel() {
+  document.getElementById("info-panel").classList.remove("open");
+}
+
+function navigateToNode(id) {
+  const n = data.nodes.find(d => d.id === id);
+  if (n) showPanel(n);
+}
+
+// Close panel on background click
+svg.on("click", () => closePanel());
+
+// Filter buttons
+document.querySelectorAll(".filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const filter = btn.dataset.filter;
+
+    node.transition().duration(400)
+      .attr("opacity", d => {
+        if (filter === "all") return 1;
+        if (filter === "unsolved") return d.status === "unsolved" || d.status === "partial" ? 1 : 0.1;
+        return d.tags.includes(filter) ? 1 : 0.1;
+      });
+
+    link.transition().duration(400)
+      .attr("stroke-opacity", l => {
+        if (filter === "all") return 1;
+        const s = l.source;
+        const t = l.target;
+        if (filter === "unsolved") {
+          return (s.status === "unsolved" || s.status === "partial" || t.status === "unsolved" || t.status === "partial") ? 1 : 0.05;
+        }
+        return (s.tags && s.tags.includes(filter) && t.tags && t.tags.includes(filter)) ? 1 : 0.05;
+      });
+  });
+});
+
+// Helper
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `${r},${g},${b}`;
+}
+
+// Resize
+window.addEventListener("resize", () => {
+  svg.attr("width", window.innerWidth).attr("height", window.innerHeight);
+  simulation.force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+  simulation.alpha(0.3).restart();
+});
+</script>
+</body>
+</html>
