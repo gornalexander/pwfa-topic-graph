@@ -54,10 +54,7 @@ const topics = [
     description: "The Advanced Wakefield Experiment at CERN — the world's first proton-driven PWFA experiment. Uses 400 GeV proton bunches from the SPS co-propagating with a laser pulse through 10 m of rubidium vapor plasma (n₀ ~ 10¹⁴–10¹⁵ cm⁻³).",
     paperIds: ["NIMA.829.76", "PPCF.60.014046", "Symmetry.14.1680"],
     openQuestions: null,
-    sources: [
-      { id: "pwfa", type: "contains" },
-      { id: "electron_accel", type: "demonstrates" },
-    ],
+    sources: [{ id: "pwfa", type: "contains" }],
   },
   {
     id: "smi",
@@ -67,10 +64,7 @@ const topics = [
     description: "A long proton bunch (σ_z ≫ λ_pe) undergoes transverse self-modulation instability in plasma, splitting into a train of micro-bunches spaced at the plasma wavelength. This is the key mechanism enabling proton-driven PWFA — it converts a single long bunch into a resonant driver.",
     paperIds: ["PRL.104.255003", "PoP.22.103110", "PoP.18.024501"],
     openQuestions: null,
-    sources: [
-      { id: "pwfa", type: "requires" },
-      { id: "simulation", type: "models" },
-    ],
+    sources: [{ id: "pwfa", type: "requires" }],
   },
   {
     id: "electron_injection",
@@ -95,7 +89,7 @@ const topics = [
     paperIds: ["PRAB.24.011301", "PRAB.20.101301"],
     openQuestions: "Achieving %-level energy spread and μm-level emittance simultaneously at GeV energies is not yet demonstrated.",
     sources: [
-      { id: "electron_accel", type: "determines" },
+      { id: "electron_injection", type: "determines" },
       { id: "electron_halo", type: "degrades" },
       { id: "hollow_plasma", type: "improves" },
     ],
@@ -108,7 +102,7 @@ const topics = [
     description: "Breaking of the plasma wave occurs when electron trajectories cross, leading to electron jets escaping from the plasma column and formation of an electron halo. The wavebreaking position and its dependence on beam and plasma parameters are studied.",
     paperIds: ["PRL.112.194801", "PoP.29.023104"],
     openQuestions: "Finding the exact wavebreaking location from plasma electron trajectories — analytical prediction of the onset point is not fully solved.",
-    sources: [{ id: "simulation", type: "models" }],
+    sources: [{ id: "smi", type: "related" }],
   },
   {
     id: "hollow_plasma",
@@ -165,7 +159,6 @@ const topics = [
     sources: [
       { id: "smi", type: "causes" },
       { id: "awake", type: "measures" },
-      { id: "simulation", type: "models" },
     ],
   },
   {
@@ -225,7 +218,6 @@ const topics = [
     sources: [
       { id: "wavebreaking", type: "related" },
       { id: "radial_equilibrium", type: "related" },
-      { id: "simulation", type: "models" },
     ],
   },
   {
@@ -249,10 +241,7 @@ const topics = [
     description: "AWAKE Run 2 goal: demonstrating a scalable plasma electron source by maintaining acceleration over long plasma distances with preserved beam quality. Requires density gradient control, precise injection, and emittance preservation.",
     paperIds: ["Symmetry.14.1680"],
     openQuestions: "Full demonstration pending in AWAKE Run 2 (planned).",
-    sources: [
-      { id: "electron_accel", type: "leads_to" },
-      { id: "awake", type: "plans" },
-    ],
+    sources: [{ id: "awake", type: "plans" }],
   },
   {
     id: "density_ramps",
