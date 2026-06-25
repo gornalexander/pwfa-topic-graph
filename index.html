@@ -809,8 +809,8 @@ function switchToTree() {
 
 function switchToForce() {
   data.nodes.forEach(d => { d.fx = null; d.fy = null; });
-  link.attr("stroke", "rgba(100,116,139,0.15)").attr("stroke-width", 1.2).attr("stroke-opacity", 1);
-  simulation.alphaTarget(0).alpha(0.8).restart();
+  link.attr("stroke", baseLinkStroke()).attr("stroke-width", baseLinkWidth()).attr("stroke-opacity", 1);
+  simulation.alphaTarget(0).alpha(0.15).alphaDecay(0.008).restart();
 }
 
 document.getElementById("layout-toggle").addEventListener("click", function() {
