@@ -606,9 +606,8 @@ function dragged(event, d) {
   d.fy = event.y;
 }
 function dragended(event, d) {
-  if (!event.active) simulation.alphaTarget(0);
-  d.fx = null;
-  d.fy = null;
+  if (!event.active) simulation.alphaTarget(currentLayout === "tree" ? 0.05 : 0);
+  if (currentLayout === "force") { d.fx = null; d.fy = null; }
 }
 
 // Panel
@@ -752,14 +751,20 @@ function treePositions() {
 function switchToTree() {
   const pos = treePositions();
   data.nodes.forEach(d => {
-    d.fx = pos[d.id].x;
-    d.fy = pos[d.id].y;
+    d.x = d.fx = pos[d.id].x;
+    d.y = d.fy = pos[d.id].y;
   });
+  link.attr("stroke", "rgba(100,116,139,0.25)").attr("stroke-opacity", 1);
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+  link
+    .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
   simulation.alphaTarget(0.05).restart();
 }
 
 function switchToForce() {
   data.nodes.forEach(d => { d.fx = null; d.fy = null; });
+  link.attr("stroke", "rgba(100,116,139,0.15)").attr("stroke-opacity", 1);
   simulation.alphaTarget(0).alpha(0.8).restart();
 }
 
