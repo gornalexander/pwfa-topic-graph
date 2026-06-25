@@ -281,35 +281,61 @@
     background: rgba(15,20,35,0.95);
     border: 1px solid rgba(100,116,139,0.2);
     border-radius: 10px;
-    overflow: hidden;
+    overflow-y: auto;
+    max-height: 62vh;
     backdrop-filter: blur(12px);
     display: none;
   }
   #search-results.show { display: block; }
+  #search-results::-webkit-scrollbar { width: 4px; }
+  #search-results::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 4px; }
   .search-result {
-    padding: 8px 14px;
+    padding: 8px 12px;
     font-size: 12px;
     color: #cbd5e1;
     cursor: pointer;
+    transition: background 0.12s;
+    border-bottom: 1px solid rgba(100,116,139,0.08);
+  }
+  .search-result:last-child { border-bottom: none; }
+  .search-result:hover, .search-result.active {
+    background: rgba(96,165,250,0.12);
+  }
+  .sr-head {
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: background 0.12s;
+    color: #e2e8f0;
+    font-weight: 500;
   }
-  .search-result:hover, .search-result.active {
-    background: rgba(96,165,250,0.18);
-    color: #fff;
-  }
-  .search-result .sr-dot {
+  .sr-dot {
     width: 7px; height: 7px;
     border-radius: 50%;
     flex-shrink: 0;
   }
-  .search-result .sr-sub {
+  .sr-sub {
     margin-left: auto;
     color: #64748b;
     font-size: 10px;
+    font-weight: 400;
   }
+  .sr-papers {
+    margin: 5px 0 1px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sr-paper {
+    display: block;
+    font-size: 11px;
+    line-height: 1.35;
+    color: #94a3b8;
+    text-decoration: none;
+    border-left: 2px solid rgba(96,165,250,0.3);
+    padding-left: 8px;
+  }
+  .sr-paper:hover { color: #e2e8f0; border-left-color: rgba(96,165,250,0.7); }
+  .sr-paper .sr-paper-ref { color: #64748b; }
 
   /* Tooltip */
   .tooltip {
@@ -877,6 +903,16 @@ function focusNode(d) {
   showPanel(d);
 }
 
+function matchingPapers(d) {
+  if (!searchQuery) return [];
+  return d.papers.filter(p =>
+    (p.title + " " + p.ref + " " + (p.authors || "")).toLowerCase().includes(searchQuery));
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
 function renderResults() {
   if (!searchQuery) {
     searchResults.classList.remove("show");
@@ -893,15 +929,29 @@ function renderResults() {
     searchResults.classList.add("show");
     return;
   }
-  searchResults.innerHTML = currentMatches.map((d, i) =>
-    `<div class="search-result${i === activeResultIdx ? " active" : ""}" data-idx="${i}">
-       <div class="sr-dot" style="background:${statusColors[d.status]}"></div>
-       ${labelText(d)}
-       <span class="sr-sub">rank ${d.rank}</span>
-     </div>`).join("");
+  searchResults.innerHTML = currentMatches.map((d, i) => {
+    const papersHtml = matchingPapers(d).map(p => {
+      const inner = `${escapeHtml(p.title)}<br><span class="sr-paper-ref">${escapeHtml(p.ref)}</span>`;
+      return p.doi
+        ? `<a class="sr-paper" href="https://doi.org/${p.doi}" target="_blank" rel="noopener">${inner}</a>`
+        : `<span class="sr-paper">${inner}</span>`;
+    }).join("");
+    return `<div class="search-result${i === activeResultIdx ? " active" : ""}" data-idx="${i}">
+       <div class="sr-head">
+         <div class="sr-dot" style="background:${statusColors[d.status]}"></div>
+         ${labelText(d)}
+         <span class="sr-sub">rank ${d.rank}</span>
+       </div>
+       ${papersHtml ? `<div class="sr-papers">${papersHtml}</div>` : ""}
+     </div>`;
+  }).join("");
   searchResults.classList.add("show");
+  // Clicking a result focuses the node; clicking a paper link opens its DOI.
   searchResults.querySelectorAll(".search-result[data-idx]").forEach(el => {
-    el.addEventListener("click", () => selectResult(+el.dataset.idx));
+    el.querySelector(".sr-head").addEventListener("click", () => selectResult(+el.dataset.idx));
+  });
+  searchResults.querySelectorAll(".sr-paper").forEach(el => {
+    el.addEventListener("click", e => e.stopPropagation());
   });
 }
 
