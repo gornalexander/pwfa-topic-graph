@@ -378,7 +378,7 @@
 <div id="graph-container"></div>
 
 <div id="search">
-  <input id="search-input" type="text" placeholder="Search topics, tags, papers…" autocomplete="off" spellcheck="false" />
+  <input id="search-input" type="text" placeholder="Search topics, authors… (try 'first author: Lotov')" autocomplete="off" spellcheck="false" />
   <div id="search-results"></div>
 </div>
 
@@ -813,7 +813,8 @@ svg.on("click", () => {
 // ============================================================
 
 let activeFilter = "all";
-let searchQuery = "";
+// searchSpec.mode: "any" (free text) | "firstAuthor" (papers whose 1st author matches)
+let searchSpec = { mode: "any", text: "" };
 
 function myLevel(d) {
   if (d.papers.some(p => p.me === "first")) return "first";
@@ -821,14 +822,32 @@ function myLevel(d) {
   return null;
 }
 
+// Parse special prefixes, e.g. "first author: Lotov" / "first: Lotov".
+function parseQuery(raw) {
+  const m = raw.match(/^\s*first(?:\s*author)?\s*:\s*(.*)$/i);
+  if (m) return { mode: "firstAuthor", text: m[1].trim().toLowerCase() };
+  return { mode: "any", text: raw.trim().toLowerCase() };
+}
+
+function firstAuthorOf(p) {
+  return (p.authors || "").split(",")[0].trim().toLowerCase();
+}
+
+function paperMatches(p) {
+  if (searchSpec.mode === "firstAuthor") {
+    return firstAuthorOf(p).includes(searchSpec.text);
+  }
+  return (p.title + " " + p.ref + " " + (p.authors || "")).toLowerCase().includes(searchSpec.text);
+}
+
 function matchesSearch(d) {
-  const q = searchQuery;
-  if (!q) return true;
-  if (labelText(d).toLowerCase().includes(q)) return true;
-  if (d.description && d.description.toLowerCase().includes(q)) return true;
-  if (d.tags.some(t => t.toLowerCase().includes(q))) return true;
-  if (d.papers.some(p => (p.title + " " + p.ref + " " + (p.authors || "")).toLowerCase().includes(q))) return true;
-  return false;
+  if (!searchSpec.text) return true;
+  if (searchSpec.mode === "any") {
+    if (labelText(d).toLowerCase().includes(searchSpec.text)) return true;
+    if (d.description && d.description.toLowerCase().includes(searchSpec.text)) return true;
+    if (d.tags.some(t => t.toLowerCase().includes(searchSpec.text))) return true;
+  }
+  return d.papers.some(paperMatches);
 }
 
 function filterNodeOpacity(d) {
@@ -859,11 +878,11 @@ function filterLinkOpacity(l) {
 
 // View opacity: search (when active) takes priority over the active filter.
 function viewNodeOpacity(d) {
-  if (searchQuery) return matchesSearch(d) ? 1 : 0.1;
+  if (searchSpec.text) return matchesSearch(d) ? 1 : 0.1;
   return filterNodeOpacity(d);
 }
 function viewLinkOpacity(l) {
-  if (searchQuery) return (matchesSearch(l.source) && matchesSearch(l.target)) ? 1 : 0.04;
+  if (searchSpec.text) return (matchesSearch(l.source) && matchesSearch(l.target)) ? 1 : 0.04;
   return filterLinkOpacity(l);
 }
 
@@ -904,9 +923,8 @@ function focusNode(d) {
 }
 
 function matchingPapers(d) {
-  if (!searchQuery) return [];
-  return d.papers.filter(p =>
-    (p.title + " " + p.ref + " " + (p.authors || "")).toLowerCase().includes(searchQuery));
+  if (!searchSpec.text) return [];
+  return d.papers.filter(paperMatches);
 }
 
 function escapeHtml(s) {
@@ -914,7 +932,7 @@ function escapeHtml(s) {
 }
 
 function renderResults() {
-  if (!searchQuery) {
+  if (!searchSpec.text) {
     searchResults.classList.remove("show");
     searchResults.innerHTML = "";
     return;
@@ -963,7 +981,7 @@ function selectResult(i) {
 }
 
 function clearSearch() {
-  searchQuery = "";
+  searchSpec = { mode: "any", text: "" };
   searchInput.value = "";
   currentMatches = [];
   activeResultIdx = -1;
@@ -971,7 +989,7 @@ function clearSearch() {
 }
 
 searchInput.addEventListener("input", () => {
-  searchQuery = searchInput.value.trim().toLowerCase();
+  searchSpec = parseQuery(searchInput.value);
   activeResultIdx = -1;
   applyFilter(200);
   renderResults();
