@@ -310,10 +310,13 @@
 <script src="papers.js"></script>
 <script src="topics.js"></script>
 <script>
-// Resolve paperIds -> paper objects; build links from per-node sources
+// Derive size and type from rank; resolve paperIds; build links from sources
+const rankSize = { 0: 28, 1: 24, 2: 18, 3: 14, 4: 10 };
 const data = {
   nodes: topics.map(node => ({
     ...node,
+    type: node.rank <= 1 ? "category" : "topic",
+    size: rankSize[node.rank] ?? 12,
     papers: (node.paperIds || []).map(id => papers[id]).filter(Boolean),
   })),
   links: topics.flatMap(node =>
