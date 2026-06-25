@@ -573,12 +573,7 @@ node.on("mouseover", function(event, d) {
     .attr("stroke-opacity", d => d.type === "category" ? 0.8 : 0.5)
     .attr("stroke-width", d => d.type === "category" ? 2 : 1.5);
 
-  link.transition().duration(300)
-    .attr("stroke", baseLinkStroke())
-    .attr("stroke-width", baseLinkWidth());
-
-  node.transition().duration(300)
-    .attr("opacity", 1);
+  applyFilter(300);
 
   document.getElementById("tooltip").style.opacity = 0;
 })
@@ -707,47 +702,56 @@ function navigateToNode(id) {
 // Close panel on background click
 svg.on("click", () => closePanel());
 
-// Filter buttons
+// Filter logic
+let activeFilter = "all";
+
+function myLevel(d) {
+  if (d.papers.some(p => p.me === "first")) return "first";
+  if (d.papers.some(p => p.me === "coauthor")) return "coauthor";
+  return null;
+}
+
+function filterNodeOpacity(d) {
+  const f = activeFilter;
+  if (f === "all") return 1;
+  if (f === "unsolved") return d.status === "unsolved" || d.status === "partial" ? 1 : 0.1;
+  if (f === "my") {
+    const lvl = myLevel(d);
+    if (lvl === "first") return 1;
+    if (lvl === "coauthor") return 0.55;
+    return 0.08;
+  }
+  return d.tags.includes(f) ? 1 : 0.1;
+}
+
+function filterLinkOpacity(l) {
+  const f = activeFilter;
+  if (f === "all") return 1;
+  const s = l.source;
+  const t = l.target;
+  if (f === "unsolved") {
+    return (s.status === "unsolved" || s.status === "partial" || t.status === "unsolved" || t.status === "partial") ? 1 : 0.05;
+  }
+  if (f === "my") {
+    return (myLevel(s) || myLevel(t)) ? 1 : 0.03;
+  }
+  return (s.tags && s.tags.includes(f) && t.tags && t.tags.includes(f)) ? 1 : 0.05;
+}
+
+function applyFilter(duration) {
+  node.transition().duration(duration).attr("opacity", filterNodeOpacity);
+  link.transition().duration(duration)
+    .attr("stroke", baseLinkStroke())
+    .attr("stroke-width", baseLinkWidth())
+    .attr("stroke-opacity", filterLinkOpacity);
+}
+
 document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".filter-btn[data-filter]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
-    const filter = btn.dataset.filter;
-
-    function myLevel(d) {
-      if (d.papers.some(p => p.me === "first")) return "first";
-      if (d.papers.some(p => p.me === "coauthor")) return "coauthor";
-      return null;
-    }
-
-    node.transition().duration(400)
-      .attr("opacity", d => {
-        if (filter === "all") return 1;
-        if (filter === "unsolved") return d.status === "unsolved" || d.status === "partial" ? 1 : 0.1;
-        if (filter === "my") {
-          const lvl = myLevel(d);
-          if (lvl === "first") return 1;
-          if (lvl === "coauthor") return 0.55;
-          return 0.08;
-        }
-        return d.tags.includes(filter) ? 1 : 0.1;
-      });
-
-    link.transition().duration(400)
-      .attr("stroke", baseLinkStroke())
-      .attr("stroke-width", baseLinkWidth())
-      .attr("stroke-opacity", l => {
-        if (filter === "all") return 1;
-        const s = l.source;
-        const t = l.target;
-        if (filter === "unsolved") {
-          return (s.status === "unsolved" || s.status === "partial" || t.status === "unsolved" || t.status === "partial") ? 1 : 0.05;
-        }
-        if (filter === "my") {
-          return (myLevel(s) || myLevel(t)) ? 1 : 0.03;
-        }
-        return (s.tags && s.tags.includes(filter) && t.tags && t.tags.includes(filter)) ? 1 : 0.05;
-      });
+    activeFilter = btn.dataset.filter;
+    applyFilter(400);
   });
 });
 
