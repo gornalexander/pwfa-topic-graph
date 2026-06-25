@@ -801,7 +801,7 @@ function matchesSearch(d) {
   if (labelText(d).toLowerCase().includes(q)) return true;
   if (d.description && d.description.toLowerCase().includes(q)) return true;
   if (d.tags.some(t => t.toLowerCase().includes(q))) return true;
-  if (d.papers.some(p => (p.title + " " + p.ref).toLowerCase().includes(q))) return true;
+  if (d.papers.some(p => (p.title + " " + p.ref + " " + (p.authors || "")).toLowerCase().includes(q))) return true;
   return false;
 }
 
