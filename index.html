@@ -550,8 +550,8 @@ node.on("mouseenter", function(event, d) {
 
   const isHighlighted = l => pathLinkKeys.has(linkSrcId(l) + "->" + linkTgtId(l));
   link.transition().duration(200)
-    .attr("stroke", l => isHighlighted(l) ? "rgba(167,180,200,0.7)" : "rgba(100,116,139,0.06)")
-    .attr("stroke-width", l => isHighlighted(l) ? 2.5 : baseLinkWidth() * 0.6);
+    .attr("stroke", l => isHighlighted(l) ? "rgba(167,180,200,0.75)" : "rgba(100,116,139,0.06)")
+    .attr("stroke-width", l => isHighlighted(l) ? 1 : baseLinkWidth() * 0.6);
 
   node.transition().duration(200)
     .attr("opacity", n => pathNodeIds.has(n.id) ? 1 : 0.2);
@@ -602,12 +602,27 @@ pulseUnsolved();
 // Simulation tick + drag
 // ============================================================
 
+// Trim each link to the edges of its end bubbles so it doesn't run under them.
+function trimLink(d) {
+  const dx = d.target.x - d.source.x;
+  const dy = d.target.y - d.source.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  const ux = dx / dist, uy = dy / dist;
+  return {
+    x1: d.source.x + ux * (d.source.size + 1),
+    y1: d.source.y + uy * (d.source.size + 1),
+    x2: d.target.x - ux * (d.target.size + 1),
+    y2: d.target.y - uy * (d.target.size + 1),
+  };
+}
+
 simulation.on("tick", () => {
+  link.each(d => { d.__p = trimLink(d); });
   link
-    .attr("x1", d => d.source.x)
-    .attr("y1", d => d.source.y)
-    .attr("x2", d => d.target.x)
-    .attr("y2", d => d.target.y);
+    .attr("x1", d => d.__p.x1)
+    .attr("y1", d => d.__p.y1)
+    .attr("x2", d => d.__p.x2)
+    .attr("y2", d => d.__p.y2);
   node.attr("transform", d => `translate(${d.x},${d.y})`);
 });
 
