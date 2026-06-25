@@ -445,8 +445,11 @@ function applyForceLayout() {
     .force("y", d3.forceY(cy).strength(0.04));
 }
 
-const simulation = d3.forceSimulation(data.nodes);
+const simulation = d3.forceSimulation(data.nodes).stop();
 applyForceLayout();
+// Pre-settle so the graph loads stationary — avoids nodes drifting out from
+// under the cursor (which would fire spurious mouseout) right after load.
+simulation.tick(300);
 
 // ============================================================
 // Draw links and nodes
@@ -601,14 +604,16 @@ pulseUnsolved();
 // Simulation tick + drag
 // ============================================================
 
-simulation.on("tick", () => {
+function ticked() {
   link
     .attr("x1", d => d.source.x)
     .attr("y1", d => d.source.y)
     .attr("x2", d => d.target.x)
     .attr("y2", d => d.target.y);
   node.attr("transform", d => `translate(${d.x},${d.y})`);
-});
+}
+simulation.on("tick", ticked);
+ticked(); // render the pre-settled layout once
 
 function dragstarted(event, d) {
   if (!event.active) simulation.alphaTarget(0.3).restart();
