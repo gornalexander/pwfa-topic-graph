@@ -4,12 +4,8 @@
 //   sources: [{ id: "<source_node_id>", type: "<relationship>" }]
 // The relationship reads as: "<source> <type> <this node>".
 //
-// Rank (lower = higher in hierarchy):
-//   0 — top-level pillars (Electron Acceleration, PIC Simulation)
-//   1 — overarching concept (Proton-Driven PWFA)
-//   2 — major building blocks (AWAKE, SMI, Electron Injection, ...)
-//   3 — specific topics (SSM, Defocusing, Noise & Seeding, ...)
-//   4 — sub-topics / details (Phase Reproducibility, Two-Screen, ...)
+// Rank is auto-computed as the shortest path (via sources) to a rank-0 node.
+// Only rank-0 nodes are marked explicitly; all others are derived.
 
 const topics = [
   // === RANK 0 — top-level pillars ===
@@ -36,11 +32,9 @@ const topics = [
     sources: [],
   },
 
-  // === RANK 1 — overarching concept ===
   {
     id: "pwfa",
     label: "Proton-Driven\nPWFA",
-    rank: 1,
     status: "category",
     tags: ["theory", "experiment"],
     description: "Using high-energy proton bunches to drive plasma wakefields for particle acceleration. The key advantage is the large energy stored in proton bunches from existing accelerators (e.g. SPS at CERN), enabling GeV-scale energy gain in a single plasma stage.",
@@ -52,11 +46,9 @@ const topics = [
     ],
   },
 
-  // === RANK 2 — major building blocks ===
   {
     id: "awake",
     label: "AWAKE\nExperiment",
-    rank: 2,
     status: "category",
     tags: ["experiment"],
     description: "The Advanced Wakefield Experiment at CERN — the world's first proton-driven PWFA experiment. Uses 400 GeV proton bunches from the SPS co-propagating with a laser pulse through 10 m of rubidium vapor plasma (n₀ ~ 10¹⁴–10¹⁵ cm⁻³).",
@@ -70,7 +62,6 @@ const topics = [
   {
     id: "smi",
     label: "Self-Modulation\nInstability",
-    rank: 2,
     status: "solved",
     tags: ["theory", "experiment", "simulation"],
     description: "A long proton bunch (σ_z ≫ λ_pe) undergoes transverse self-modulation instability in plasma, splitting into a train of micro-bunches spaced at the plasma wavelength. This is the key mechanism enabling proton-driven PWFA — it converts a single long bunch into a resonant driver.",
@@ -84,7 +75,6 @@ const topics = [
   {
     id: "electron_injection",
     label: "Electron\nInjection",
-    rank: 2,
     status: "partial",
     tags: ["theory", "experiment", "simulation"],
     description: "Injecting witness electrons into the correct accelerating and focusing phase of the wakefield. Requires precise timing relative to the SSM phase. Side injection at an optimum angle can improve trapping efficiency. Central challenge for AWAKE Run 2.",
@@ -99,7 +89,6 @@ const topics = [
   {
     id: "beam_quality",
     label: "Accelerated\nBeam Quality",
-    rank: 2,
     status: "partial",
     tags: ["theory", "simulation"],
     description: "Achieving low emittance, narrow energy spread, and high charge in the accelerated electron bunch. Beam loading, injection precision, and transverse wakefield effects all impact the final beam parameters. Critical for applications (e.g. fixed-target HEP).",
@@ -114,7 +103,6 @@ const topics = [
   {
     id: "wavebreaking",
     label: "Wavebreaking",
-    rank: 2,
     status: "partial",
     tags: ["theory", "simulation"],
     description: "Breaking of the plasma wave occurs when electron trajectories cross, leading to electron jets escaping from the plasma column and formation of an electron halo. The wavebreaking position and its dependence on beam and plasma parameters are studied.",
@@ -125,7 +113,6 @@ const topics = [
   {
     id: "hollow_plasma",
     label: "Hollow Plasma\nChannel",
-    rank: 2,
     status: "partial",
     tags: ["theory", "simulation"],
     description: "A plasma with a hollow density profile (no plasma on axis) can accelerate electrons without transverse focusing-defocusing oscillations, potentially preserving beam emittance. Studied for proton-driven and multi-bunch schemes.",
@@ -136,7 +123,6 @@ const topics = [
   {
     id: "bunch_trains",
     label: "Stable Bunch\nTrains",
-    rank: 2,
     status: "partial",
     tags: ["theory"],
     description: "Using pre-formed bunch trains (instead of relying on SMI) to drive wakefields resonantly. Can produce more stable and controllable acceleration but requires precise bunch spacing and charge distribution.",
@@ -147,7 +133,6 @@ const topics = [
   {
     id: "density_gradient",
     label: "Plasma Density\nGradient",
-    rank: 2,
     status: "partial",
     tags: ["theory", "simulation"],
     description: "Longitudinal plasma density gradients can prevent bunch destruction at the SMI saturation point and increase the maximum energy gain. A positive gradient keeps the wakefield travelling at the speed of light at the witness position, maintaining acceleration.",
@@ -156,11 +141,9 @@ const topics = [
     sources: [{ id: "density_ramps", type: "related" }],
   },
 
-  // === RANK 3 — specific topics ===
   {
     id: "ssm",
     label: "Seeded\nSelf-Modulation",
-    rank: 3,
     status: "solved",
     tags: ["theory", "experiment"],
     description: "Using a relativistic ionization front (from a co-propagating laser pulse) to seed the self-modulation instability with a sharp, reproducible initial wakefield. This makes the SMI phase reproducible from event to event, which is essential for external electron injection.",
@@ -174,7 +157,6 @@ const topics = [
   {
     id: "defocusing",
     label: "Proton Beam\nDefocusing",
-    rank: 3,
     status: "solved",
     tags: ["theory", "experiment", "simulation"],
     description: "The transverse wakefield defocuses protons in the self-modulating beam. Defocused protons form a measurable halo on downstream screens, providing an indirect diagnostic of the SMI process. Simulations and measurements were compared in detail.",
@@ -189,7 +171,6 @@ const topics = [
   {
     id: "noise_seeding",
     label: "Noise &\nSeeding",
-    rank: 3,
     status: "solved",
     tags: ["theory", "simulation"],
     description: "Natural shot noise in the proton beam provides initial perturbation for SMI growth. The noise amplitude and spectrum determine the instability onset and early evolution. External seeding (e.g., via a laser ionization front) overcomes the noise to produce reproducible modulation.",
@@ -203,7 +184,6 @@ const topics = [
   {
     id: "emittance",
     label: "Beam Emittance\nEffects",
-    rank: 3,
     status: "solved",
     tags: ["theory", "simulation"],
     description: "Finite transverse emittance of the proton driver affects the SMI growth rate. When the beam size is comparable to or larger than the plasma skin depth, emittance effects become important and can suppress or modify the instability.",
@@ -214,7 +194,6 @@ const topics = [
   {
     id: "phase_velocity",
     label: "Phase Velocity\n& Dephasing",
-    rank: 3,
     status: "partial",
     tags: ["theory"],
     description: "The phase velocity of the wakefield in the SMI regime is not exactly c — it evolves during the instability growth, leading to dephasing between the witness electrons and the accelerating bucket. Understanding and controlling this is important for high energy gain.",
@@ -228,7 +207,6 @@ const topics = [
   {
     id: "radial_equilibrium",
     label: "Radial\nEquilibrium",
-    rank: 3,
     status: "solved",
     tags: ["theory"],
     description: "Conditions under which a relativistic particle bunch maintains transverse equilibrium in the wakefield focusing channel. Important for understanding beam propagation over long plasma lengths.",
@@ -239,7 +217,6 @@ const topics = [
   {
     id: "narrow_plasma",
     label: "Narrow Plasma\nResponse",
-    rank: 3,
     status: "solved",
     tags: ["theory", "simulation"],
     description: "When the plasma radius is comparable to the beam-driven blowout radius, plasma electrons are ejected beyond the boundary and the wakefield structure changes qualitatively. Electron flux through the boundary and field structure were studied in detail.",
@@ -254,7 +231,6 @@ const topics = [
   {
     id: "diagnostics",
     label: "Wakefield\nDiagnostics",
-    rank: 3,
     status: "partial",
     tags: ["experiment", "simulation"],
     description: "Methods to measure the wakefield amplitude, structure, and micro-bunch train. Includes optical and coherent transition radiation (CTR) diagnostics, but these are destructive to the accelerated beam. Non-destructive methods remain limited.",
@@ -268,7 +244,6 @@ const topics = [
   {
     id: "scalable_source",
     label: "Scalable\ne⁻ Source",
-    rank: 3,
     status: "partial",
     tags: ["experiment"],
     description: "AWAKE Run 2 goal: demonstrating a scalable plasma electron source by maintaining acceleration over long plasma distances with preserved beam quality. Requires density gradient control, precise injection, and emittance preservation.",
@@ -282,7 +257,6 @@ const topics = [
   {
     id: "density_ramps",
     label: "Plasma Density\nRamps",
-    rank: 3,
     status: "partial",
     tags: ["experiment", "simulation"],
     description: "Density ramps at the entrance/exit of the plasma cell (near the rubidium vapor irises) affect the wakefield excitation and can cause injection issues. The transition region from vacuum to nominal density must be minimized.",
@@ -293,7 +267,6 @@ const topics = [
   {
     id: "parameter_sensitivity",
     label: "Parameter\nSensitivity",
-    rank: 3,
     status: "solved",
     tags: ["theory", "simulation"],
     description: "How sensitive is the PWFA performance (energy gain, beam quality) to variations in plasma density, bunch population, beam size, and other parameters? Important for robust experimental design.",
@@ -302,11 +275,9 @@ const topics = [
     sources: [{ id: "smi", type: "related" }],
   },
 
-  // === RANK 4 — sub-topics / details ===
   {
     id: "phase_reproducibility",
     label: "Phase\nReproducibility",
-    rank: 4,
     status: "solved",
     tags: ["experiment"],
     description: "Demonstrating that the wakefield phase is reproducible from event to event when the initial seeding amplitude is large enough (≳ 4 MV/m). With 3%–7% rms (of 2π) phase variations, this enables deterministic electron injection into the accelerating phase.",
@@ -317,7 +288,6 @@ const topics = [
   {
     id: "two_screen",
     label: "Two-Screen\nMeasurement",
-    rank: 4,
     status: "solved",
     tags: ["experiment"],
     description: "Time-resolved measurement of the transversely-defocused protons using two downstream imaging stations. Provides information about the longitudinal wakefield structure and micro-bunch train formation.",
@@ -331,7 +301,6 @@ const topics = [
   {
     id: "electron_halo",
     label: "Electron\nHalo",
-    rank: 4,
     status: "partial",
     tags: ["theory", "simulation"],
     description: "Wavebreaking in a beam-driven plasma wave produces electron jets that escape the plasma column and form a halo with strong radial electric and azimuthal magnetic fields. The halo can degrade the accelerated beam quality. Mechanisms depend on whether beam density exceeds plasma density.",
@@ -342,7 +311,6 @@ const topics = [
   {
     id: "wavebreaking_location",
     label: "Wavebreaking\nLocation",
-    rank: 4,
     status: "unsolved",
     tags: ["theory"],
     description: "Determining the exact longitudinal position where the plasma wave breaks (electron trajectory crossing) from first principles. Related to the plasma electron phase space structure and the driver beam parameters.",
@@ -353,7 +321,6 @@ const topics = [
   {
     id: "em_conversion",
     label: "Wakefield → EM\nConversion",
-    rank: 4,
     status: "unsolved",
     tags: ["theory", "simulation"],
     description: "Theoretical and computational study of converting plasma wakefield energy into electromagnetic radiation by inserting a waveguide structure into the plasma. Could enable non-destructive wakefield diagnostics.",
