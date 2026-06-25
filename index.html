@@ -335,7 +335,7 @@ function computeRanks(nodes) {
 }
 
 const ranks = computeRanks(topics);
-const rankSize = { 0: 36, 1: 24, 2: 18, 3: 14 };
+const rankToSize = rank => 36 / (1 + 0.4 * rank);
 const data = {
   nodes: topics.map(node => {
     const r = ranks[node.id];
@@ -343,7 +343,7 @@ const data = {
       ...node,
       rank: r,
       type: r <= 1 ? "category" : "topic",
-      size: rankSize[r] ?? 10,
+      size: rankToSize(r),
       papers: (node.paperIds || []).map(id => papers[id]).filter(Boolean),
     };
   }),
