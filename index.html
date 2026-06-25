@@ -297,6 +297,7 @@
   <button class="filter-btn" data-filter="experiment">Experiment</button>
   <button class="filter-btn" data-filter="simulation">Simulation</button>
   <button class="filter-btn" data-filter="unsolved">Open Problems</button>
+  <button class="filter-btn" data-filter="my">My Papers</button>
   <div style="width:1px;height:20px;background:rgba(100,116,139,0.3);margin:0 4px"></div>
   <button class="filter-btn layout-toggle" id="layout-toggle">Tree View</button>
 </div>
@@ -713,10 +714,22 @@ document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
     btn.classList.add("active");
     const filter = btn.dataset.filter;
 
+    function myLevel(d) {
+      if (d.papers.some(p => p.me === "first")) return "first";
+      if (d.papers.some(p => p.me === "coauthor")) return "coauthor";
+      return null;
+    }
+
     node.transition().duration(400)
       .attr("opacity", d => {
         if (filter === "all") return 1;
         if (filter === "unsolved") return d.status === "unsolved" || d.status === "partial" ? 1 : 0.1;
+        if (filter === "my") {
+          const lvl = myLevel(d);
+          if (lvl === "first") return 1;
+          if (lvl === "coauthor") return 0.55;
+          return 0.08;
+        }
         return d.tags.includes(filter) ? 1 : 0.1;
       });
 
@@ -729,6 +742,9 @@ document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
         const t = l.target;
         if (filter === "unsolved") {
           return (s.status === "unsolved" || s.status === "partial" || t.status === "unsolved" || t.status === "partial") ? 1 : 0.05;
+        }
+        if (filter === "my") {
+          return (myLevel(s) || myLevel(t)) ? 1 : 0.03;
         }
         return (s.tags && s.tags.includes(filter) && t.tags && t.tags.includes(filter)) ? 1 : 0.05;
       });
