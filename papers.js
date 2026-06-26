@@ -305,5 +305,13 @@ const papers = {
     "doi": "10.1103/PhysRevLett.43.267",
     "arxiv": null,
     "me": null
+  },
+  "arXiv.2401.11924": {
+    "title": "LCODE: Quasistatic code for simulating long-term evolution of three-dimensional plasma wakefields",
+    "ref": "Kargapolov et al. (2024)",
+    "authors": "Kargapolov, Okhotnikov, Shalimova, Sosedkin, Lotov",
+    "doi": null,
+    "arxiv": "2401.11924",
+    "me": null
   }
 };
