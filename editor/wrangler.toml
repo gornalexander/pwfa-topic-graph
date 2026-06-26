@@ -1,0 +1,13 @@
+name = "pwfa-editor"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Non-secret vars. GITHUB_CLIENT_ID is filled in after you create the OAuth App.
+[vars]
+GITHUB_CLIENT_ID = ""
+ALLOWED_USER = "gornalexander"
+ALLOWED_ORIGINS = "https://gornalexander.github.io,http://localhost:8080"
+
+# Secrets (NOT stored here) — set with:
+#   npx wrangler secret put GITHUB_CLIENT_SECRET
+#   npx wrangler secret put ANTHROPIC_API_KEY
