@@ -59,7 +59,7 @@ function handleLogin(url, env) {
   const gh = new URL("https://github.com/login/oauth/authorize");
   gh.searchParams.set("client_id", env.GITHUB_CLIENT_ID);
   gh.searchParams.set("redirect_uri", redirectUri);
-  gh.searchParams.set("scope", "repo read:user");
+  gh.searchParams.set("scope", "public_repo read:user");
   gh.searchParams.set("state", state);
   return Response.redirect(gh.toString(), 302);
 }
