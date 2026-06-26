@@ -29,23 +29,36 @@ function readBody(req) {
 }
 
 // Run the Claude CLI in headless mode using the subscription token.
+// --tools "": disable ALL tools, so the model only generates text from the
+// paper content we already fetched (no web-fetch/Bash, no permission prompts,
+// so it can't hang or run anything). Hard timeout kills a stuck process.
 function runClaude(prompt) {
   return new Promise((resolve, reject) => {
-    const child = spawn("claude", ["-p", prompt, "--output-format", "text"], {
+    const child = spawn("claude", [
+      "-p", prompt,
+      "--output-format", "text",
+      "--tools", "",
+    ], {
       env: {
         ...process.env,
         CLAUDE_CODE_OAUTH_TOKEN: env.CLAUDE_CODE_OAUTH_TOKEN,
         HOME: process.env.HOME || "/opt/pwfa-editor/home",
       },
     });
-    let out = "", err = "";
+    let out = "", err = "", done = false;
+    const finish = (fn, arg) => { if (!done) { done = true; clearTimeout(timer); fn(arg); } };
+    const timer = setTimeout(() => { child.kill("SIGKILL"); finish(reject, new Error("claude timed out")); }, 120000);
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (err += d));
-    child.on("error", reject);
+    child.on("error", (e) => finish(reject, e));
     child.on("close", (code) =>
-      code === 0 ? resolve(out) : reject(new Error(err || `claude exited ${code}`)));
+      code === 0 ? finish(resolve, out) : finish(reject, new Error(err || `claude exited ${code}`)));
   });
 }
+
+// Only one draft at a time — a stuck/slow draft can never stack up and starve
+// the box (each claude run is heavy).
+let draftInFlight = false;
 
 async function handleDraftCLI(request, cors) {
   const auth = request.headers.get("Authorization") || "";
@@ -53,6 +66,18 @@ async function handleDraftCLI(request, cors) {
   const v = await verifyAllowedUser(ghToken, env);
   if (!v.ok) return json({ error: v.error }, v.status, cors);
 
+  if (draftInFlight) {
+    return json({ error: "busy — another draft is in progress, try again in a moment" }, 429, cors);
+  }
+  draftInFlight = true;
+  try {
+    return await runDraft(request, cors);
+  } finally {
+    draftInFlight = false;
+  }
+}
+
+async function runDraft(request, cors) {
   const body = await request.json();
   const ids = parseLink(body.link || "");
   let meta = {}, fullText = null;
