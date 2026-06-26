@@ -70,6 +70,31 @@
       border: 1px solid rgba(100,116,139,0.3); color: #cbd5e1; font: 500 12px Inter;
       opacity: 0; transition: opacity 0.2s; pointer-events: none; }
     #edit-status.show { opacity: 1; }
+    /* Deploy-status panel: persists across exiting edit mode. */
+    #deploy-status { position: fixed; bottom: 24px; left: 24px; z-index: 250;
+      display: none; max-width: 320px; padding: 12px 14px; border-radius: 10px;
+      background: rgba(15,20,35,0.97); border: 1px solid rgba(100,116,139,0.3);
+      color: #cbd5e1; font: 500 12px Inter; backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    #deploy-status.show { display: block; }
+    #deploy-status.error { border-color: rgba(248,113,113,0.5); }
+    #deploy-status .ds-row { display: flex; align-items: center; gap: 8px; }
+    #deploy-status .ds-msg { line-height: 1.4; }
+    #deploy-status .ds-spin { width: 12px; height: 12px; flex-shrink: 0;
+      border: 2px solid rgba(96,165,250,0.3); border-top-color: #60a5fa;
+      border-radius: 50%; animation: ds-spin 0.8s linear infinite; }
+    #deploy-status.busy .ds-spin { display: inline-block; }
+    #deploy-status:not(.busy) .ds-spin { display: none; }
+    @keyframes ds-spin { to { transform: rotate(360deg); } }
+    #deploy-status .ds-actions { margin-top: 10px; display: flex; gap: 6px; }
+    #deploy-status .ds-btn { flex: 1; padding: 6px 10px; border-radius: 7px; cursor: pointer;
+      border: 1px solid rgba(100,116,139,0.3); background: rgba(30,41,59,0.6);
+      color: #cbd5e1; font: 600 11px Inter; text-align: center; }
+    #deploy-status .ds-btn.primary { background: rgba(52,211,153,0.18);
+      border-color: rgba(52,211,153,0.35); color: #6ee7b7; }
+    #deploy-status .ds-btn:hover { filter: brightness(1.2); }
+    #deploy-status kbd { background: rgba(51,65,85,0.7); border-radius: 4px;
+      padding: 1px 5px; font: 600 11px ui-monospace, monospace; color: #e2e8f0; }
   `;
   document.head.appendChild(style);
 
@@ -77,7 +102,8 @@
   const toolbar = el("div", { id: "edit-toolbar" });
   const form = el("div", { id: "edit-form" });
   const statusEl = el("div", { id: "edit-status" });
-  document.body.append(fab, toolbar, form, statusEl);
+  const deployEl = el("div", { id: "deploy-status" });
+  document.body.append(fab, toolbar, form, statusEl, deployEl);
 
   toolbar.innerHTML = `
     <button class="et-btn primary" data-act="add">+ Add topic</button>
@@ -503,16 +529,61 @@
     if (!put.ok) throw new Error(`${path}: ${(await put.json()).message || put.status}`);
   }
 
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function showDeploy(html, opts = {}) {
+    deployEl.classList.add("show");
+    deployEl.classList.toggle("busy", !!opts.spinner);
+    deployEl.classList.toggle("error", !!opts.error);
+    const actions = opts.done
+      ? `<div class="ds-actions">
+           <button class="ds-btn primary" id="ds-reload">Reload now</button>
+           <button class="ds-btn" id="ds-close">Dismiss</button>
+         </div>`
+      : `<div class="ds-actions"><button class="ds-btn" id="ds-close">Hide</button></div>`;
+    deployEl.innerHTML = `<div class="ds-row"><span class="ds-spin"></span><span class="ds-msg">${html}</span></div>${actions}`;
+    const r = deployEl.querySelector("#ds-reload");
+    if (r) r.onclick = () => location.reload();
+    deployEl.querySelector("#ds-close").onclick = () => deployEl.classList.remove("show");
+  }
+
   async function save() {
     if (!state.token) return flash("Not logged in");
-    flash("Saving…");
+    showDeploy("Committing to GitHub…", { spinner: true });
+    const topicsContent = serializeTopics();
     try {
       await commitFile("papers.js", serializePapers(), "Editor: update papers.js");
-      await commitFile("topics.js", serializeTopics(), "Editor: update topics.js");
-      flash("Saved to GitHub ✓");
+      await commitFile("topics.js", topicsContent, "Editor: update topics.js");
     } catch (e) {
-      flash("Save failed: " + e.message);
+      showDeploy("Save failed: " + esc(e.message), { error: true, done: true });
+      return;
     }
+    // Off the live site (e.g. local file) there's no Pages deploy to watch.
+    if (!location.hostname.endsWith("github.io") && !window.__pwfaForceDeploy) {
+      showDeploy("Committed to GitHub ✓ — changes will appear on the live site after Pages rebuilds.", { done: true });
+      return;
+    }
+    showDeploy("Committed ✓ — deploying to GitHub Pages… (~1 min)", { spinner: true });
+    const deployed = await waitForDeploy(topicsContent);
+    if (deployed) {
+      showDeploy("Deployed ✓ — your changes are live. Hard refresh with <kbd>⌘⇧R</kbd> (or <kbd>Ctrl⇧R</kbd>) to load them.", { done: true });
+    } else {
+      showDeploy("Committed ✓, but the deploy is taking longer than usual. Hard refresh with <kbd>⌘⇧R</kbd> in a minute.", { done: true });
+    }
+  }
+
+  // Poll the published topics.js (same origin on github.io) until it matches
+  // what we just committed — i.e. the Pages deploy has actually gone live.
+  async function waitForDeploy(expected) {
+    const target = expected.trim();
+    for (let i = 0; i < 60; i++) {
+      try {
+        const r = await fetch(`topics.js?cb=${Date.now()}`, { cache: "no-store" });
+        if (r.ok && (await r.text()).trim() === target) return true;
+      } catch (_) { /* keep polling */ }
+      await sleep(4000);
+    }
+    return false;
   }
 
   // ---------- toolbar + keyboard ----------
