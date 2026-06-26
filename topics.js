@@ -609,6 +609,10 @@ const topics = [
       {
         "id": "electron_accel",
         "type": "related"
+      },
+      {
+        "id": "beam_quality",
+        "type": "related"
       }
     ]
   }
