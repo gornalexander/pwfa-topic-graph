@@ -460,7 +460,16 @@ function deriveData() {
       papers: (t.paperIds || []).map(id => papers[id]).filter(Boolean),
     };
     const old = prev.get(t.id);
-    if (old) { n.x = old.x; n.y = old.y; n.vx = old.vx; n.vy = old.vy; n.fx = old.fx; n.fy = old.fy; }
+    if (old) {
+      n.x = old.x; n.y = old.y; n.vx = old.vx; n.vy = old.vy; n.fx = old.fx; n.fy = old.fy;
+    } else {
+      // Seed new nodes near their target (centered column, rank row) so they
+      // appear centered rather than spiraling out from the origin.
+      n.x = (Math.random() - 0.5) * 160;
+      n.y = r * RANK_ROW;
+    }
+    // Pin rank-0 roots to a fixed height (free in x) so they stay level.
+    if (r === 0) { n.fy = r * RANK_ROW; if (n.y == null) n.y = n.fy; }
     return n;
   });
   data.links = topics.flatMap(t =>
@@ -517,7 +526,9 @@ const zoom = d3.zoom()
   .scaleExtent([0.3, 4])
   .on("zoom", (event) => g.attr("transform", event.transform));
 svg.call(zoom);
-svg.call(zoom.transform, d3.zoomIdentity.translate(width / 2, height / 2).scale(0.85).translate(-width / 2, -height / 2));
+// Start with x=0 (the layout's center column) at the horizontal screen center,
+// rank-0 near the top — so bubbles appear centered before fitToView refines.
+svg.call(zoom.transform, d3.zoomIdentity.translate(width / 2, 150).scale(0.8));
 
 // ============================================================
 // Force layout configuration (single source of truth)
@@ -526,7 +537,7 @@ svg.call(zoom.transform, d3.zoomIdentity.translate(width / 2, height / 2).scale(
 function linkDistance(l) {
   const s = nodeById.get(linkSrcId(l));
   const t = nodeById.get(linkTgtId(l));
-  return (s ? s.size : 14) + (t ? t.size : 14) + 60;
+  return (s ? s.size : 14) + (t ? t.size : 14) + 85;
 }
 
 function centerInGraphSpace() {
@@ -534,17 +545,50 @@ function centerInGraphSpace() {
   return t.invert([window.innerWidth / 2, window.innerHeight / 2]);
 }
 
+// Layout lives in a fixed coordinate system (independent of zoom): bigger
+// (lower-rank) bubbles toward the top via y = rank * ROW, centered on x = 0.
+// fitToView() then sets the zoom so the whole graph sits below the search bar.
+const RANK_ROW = 155;
+
 function applyForceLayout() {
-  const [cx, cy] = centerInGraphSpace();
   simulation
     .force("treeX", null)
     .force("treeY", null)
+    .force("bounds", null)
+    .force("center", null)
     .force("link", d3.forceLink(data.links).id(d => d.id).distance(linkDistance))
-    .force("charge", d3.forceManyBody().strength(d => d.type === "category" ? -800 : -400))
-    .force("center", d3.forceCenter(cx, cy))
-    .force("collision", d3.forceCollide().radius(d => d.size + 20))
-    .force("x", d3.forceX(cx).strength(0.04))
-    .force("y", d3.forceY(cy).strength(0.04));
+    // Stronger repulsion, scaled by bubble size, so the graph is less dense.
+    .force("charge", d3.forceManyBody().strength(d => -(300 + d.size * 32)))
+    .force("collision", d3.forceCollide().radius(d => d.size + 28))
+    .force("x", d3.forceX(0).strength(0.07))
+    // Deeper ranks float gently toward their row; rank-0 is pinned via fy.
+    .force("y", d3.forceY(d => d.rank * RANK_ROW).strength(0.16));
+}
+
+// Set the zoom so all bubbles fit in the area below the search bar.
+const FIT = { padX: 50, top: 130, bottom: 80, maxScale: 1.5, minScale: 0.3 };
+function fitToView(duration = 700) {
+  if (!data.nodes.length) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of data.nodes) {
+    if (n.x == null) continue;
+    x0 = Math.min(x0, n.x - n.size); x1 = Math.max(x1, n.x + n.size);
+    y0 = Math.min(y0, n.y - n.size); y1 = Math.max(y1, n.y + n.size);
+  }
+  if (!isFinite(x0)) return;
+  const bw = (x1 - x0) || 1, bh = (y1 - y0) || 1;
+  const availW = Math.max(120, window.innerWidth - 2 * FIT.padX);
+  const availH = Math.max(120, window.innerHeight - FIT.top - FIT.bottom);
+  const scale = Math.max(FIT.minScale, Math.min(availW / bw, availH / bh, FIT.maxScale));
+  const tx = FIT.padX + (availW - bw * scale) / 2 - x0 * scale;
+  const ty = FIT.top + (availH - bh * scale) / 2 - y0 * scale;
+  svg.transition().duration(duration).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+let fitTimer = null;
+function scheduleFit(delay) {
+  clearTimeout(fitTimer);
+  fitTimer = setTimeout(() => { if (currentLayout === "force") fitToView(); }, delay);
 }
 
 const simulation = d3.forceSimulation([]);
@@ -1088,6 +1132,7 @@ function switchToForce() {
   data.nodes.forEach(d => { d.fx = null; d.fy = null; });
   applyForceLayout();
   simulation.alpha(0.6).alphaDecay(0.015).alphaTarget(0).restart();
+  scheduleFit(1500);
 }
 
 document.getElementById("layout-toggle").addEventListener("click", function() {
@@ -1111,8 +1156,7 @@ document.getElementById("layout-toggle").addEventListener("click", function() {
 window.addEventListener("resize", () => {
   svg.attr("width", window.innerWidth).attr("height", window.innerHeight);
   if (currentLayout === "force") {
-    const [cx, cy] = centerInGraphSpace();
-    simulation.force("center", d3.forceCenter(cx, cy)).alpha(0.3).restart();
+    fitToView(300);
   } else {
     switchToTree();
   }
@@ -1132,8 +1176,10 @@ function rebuild({ reheat = true } = {}) {
   } else if (reheat) {
     applyForceLayout();
     simulation.alpha(0.5).alphaDecay(0.0228).restart();
+    scheduleFit(1500);
   } else {
     applyForceLayout();
+    scheduleFit(250);
   }
   // Position new/changed elements immediately (covers reheat:false, where no
   // tick fires — e.g. a freshly added link would otherwise sit at 0,0).
