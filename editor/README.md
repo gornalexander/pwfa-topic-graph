@@ -52,3 +52,7 @@ Commit & push. Done — the "Edit" button will now offer "Login with GitHub".
   `topics.js` directly from the browser using your token.
 - The Worker only lets `ALLOWED_USER` use the AI draft endpoint.
 - The GitHub token lives in `sessionStorage` (cleared when the tab closes).
+- **AI reads the paper**: on draft, the Worker fetches the paper's metadata +
+  abstract (arXiv API / Crossref) and a best-effort full-text excerpt (ar5iv for
+  arXiv papers), and feeds that to the model — so drafts are grounded in the
+  actual paper, not the model's memory. No extra setup needed.

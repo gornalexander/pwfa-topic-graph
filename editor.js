@@ -405,7 +405,7 @@
     const hint = form.querySelector("#ef-draft-hint");
     if (!link) return;
     if (!CONFIG.workerUrl) { hint.textContent = "Worker not configured — see editor/README.md"; return; }
-    hint.textContent = "Drafting with AI…";
+    hint.textContent = "Reading the paper & drafting…";
     try {
       const r = await fetch(CONFIG.workerUrl + "/ai/draft", {
         method: "POST",

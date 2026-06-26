@@ -116,7 +116,19 @@ async function handleDraft(request, env, cors) {
   }
 
   const body = await request.json();
-  const prompt = buildDraftPrompt(body);
+
+  // Read the paper: fetch metadata + abstract (+ full text when available).
+  const ids = parseLink(body.link || "");
+  let meta = {}, fullText = null;
+  if (ids.arxiv) {
+    meta = await fetchArxiv(ids.arxiv).catch(() => ({ arxiv: ids.arxiv }));
+    if (!meta.doi && ids.doi) meta.doi = ids.doi;
+    fullText = await fetchFullText(ids.arxiv).catch(() => null);
+  } else if (ids.doi) {
+    meta = await fetchCrossref(ids.doi).catch(() => ({ doi: ids.doi }));
+  }
+
+  const prompt = buildDraftPrompt(body, meta, fullText);
 
   const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -127,7 +139,7 @@ async function handleDraft(request, env, cors) {
     },
     body: JSON.stringify({
       model: AI_MODEL,
-      max_tokens: 1500,
+      max_tokens: 1800,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -149,13 +161,108 @@ async function handleDraft(request, env, cors) {
   return json({ draft }, 200, cors);
 }
 
-function buildDraftPrompt(body) {
+// ---------- paper fetching ("read the paper") ----------
+
+function parseLink(link) {
+  link = (link || "").trim();
+  let m = link.match(/arxiv\.org\/(?:abs|pdf)\/([0-9]{4}\.[0-9]{4,5})/i)
+       || link.match(/arxiv\.org\/(?:abs|pdf)\/([a-z\-]+\/\d{7})/i)
+       || link.match(/^([0-9]{4}\.[0-9]{4,5})(v\d+)?$/i);
+  if (m) return { arxiv: m[1] };
+  const d = link.match(/(10\.\d{4,9}\/[^\s"'<>]+)/i);
+  if (d) return { doi: d[1].replace(/[.,);]+$/, "") };
+  return {};
+}
+
+function decodeEntities(s) {
+  return (s || "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x27;/g, "'");
+}
+function stripTags(html) {
+  return decodeEntities(
+    (html || "")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+  ).replace(/\s+/g, " ").trim();
+}
+
+async function fetchArxiv(id) {
+  const r = await fetch(`https://export.arxiv.org/api/query?id_list=${id}`, {
+    headers: { "User-Agent": "pwfa-editor" },
+  });
+  const xml = await r.text();
+  const entry = (xml.match(/<entry>([\s\S]*?)<\/entry>/) || [])[1] || xml;
+  const pick = re => { const m = entry.match(re); return m ? stripTags(m[1]) : null; };
+  const authors = [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)].map(m => stripTags(m[1]));
+  const published = pick(/<published>([\s\S]*?)<\/published>/);
+  return {
+    title: pick(/<title>([\s\S]*?)<\/title>/),
+    abstract: pick(/<summary>([\s\S]*?)<\/summary>/),
+    authors,
+    year: published ? published.slice(0, 4) : null,
+    doi: pick(/<arxiv:doi[^>]*>([\s\S]*?)<\/arxiv:doi>/),
+    journal: pick(/<arxiv:journal_ref[^>]*>([\s\S]*?)<\/arxiv:journal_ref>/),
+    arxiv: id,
+  };
+}
+
+async function fetchCrossref(doi) {
+  const r = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, {
+    headers: { "User-Agent": "pwfa-editor (mailto:gornalexander@gmail.com)" },
+  });
+  if (!r.ok) return { doi };
+  const j = (await r.json()).message;
+  return {
+    title: Array.isArray(j.title) ? j.title[0] : j.title,
+    abstract: j.abstract ? stripTags(j.abstract) : null,
+    authors: (j.author || []).map(a => a.family || a.name).filter(Boolean),
+    journal: (j["container-title"] || [])[0] || null,
+    volume: j.volume || null,
+    page: j.page || j["article-number"] || null,
+    year: (j.published && j.published["date-parts"] && j.published["date-parts"][0][0])
+      || (j.created && j.created["date-parts"] && j.created["date-parts"][0][0]) || null,
+    doi,
+  };
+}
+
+// Best-effort full text from the arXiv HTML (ar5iv). Falls back to null.
+async function fetchFullText(arxivId) {
+  const r = await fetch(`https://ar5iv.org/abs/${arxivId}`, {
+    headers: { "User-Agent": "pwfa-editor" },
+    redirect: "follow",
+  });
+  if (!r.ok) return null;
+  const html = await r.text();
+  const body = (html.match(/<article[\s\S]*?<\/article>/i) || [])[0] || html;
+  const text = stripTags(body);
+  return text.length > 400 ? text.slice(0, 14000) : null;
+}
+
+function buildDraftPrompt(body, meta = {}, fullText = null) {
   const { link, existingTopicIds = [], existingTags = [] } = body;
+  const metaLines = [
+    meta.title ? `Title: ${meta.title}` : "",
+    meta.authors && meta.authors.length ? `Authors: ${meta.authors.join(", ")}` : "",
+    meta.journal ? `Journal: ${meta.journal}${meta.volume ? " " + meta.volume : ""}${meta.page ? ", " + meta.page : ""}` : "",
+    meta.year ? `Year: ${meta.year}` : "",
+    meta.doi ? `DOI: ${meta.doi}` : "",
+    meta.arxiv ? `arXiv: ${meta.arxiv}` : "",
+    meta.abstract ? `Abstract: ${meta.abstract}` : "",
+  ].filter(Boolean).join("\n");
+
+  const paperBlock = (metaLines || fullText)
+    ? `\n\n--- FETCHED PAPER CONTENT (base your answer on THIS, not memory) ---\n${metaLines}` +
+      (fullText ? `\n\nFull text (excerpt):\n${fullText}` : "") +
+      `\n--- END PAPER CONTENT ---\n`
+    : `\n\n(No content could be fetched; use your knowledge of the paper.)\n`;
+
   return `You are helping build an interactive graph of research topics in proton-driven plasma wakefield acceleration (PWFA).
 
 A paper link was provided: ${link}
-
-Using your knowledge of this paper (and the link), produce a JSON object describing how it fits the graph. Return ONLY valid JSON, no prose.
+${paperBlock}
+Read the fetched content above and produce a JSON object describing how this paper fits the graph. Return ONLY valid JSON, no prose.
 
 Shape:
 {
