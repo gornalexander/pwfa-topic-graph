@@ -615,5 +615,25 @@ const topics = [
         "type": "related"
       }
     ]
+  },
+  {
+    "id": "lcode",
+    "label": "LCODE",
+    "status": "partial",
+    "tags": [
+      "simulation"
+    ],
+    "description": "Development of the 3D quasistatic code LCODE for plasma wakefield acceleration simulations. Introduces a 'declustering' technique that modifies particle equations of motion to suppress macroparticle clustering and numerical heating arising from unresolved Debye lengths. This eliminates premature wake chaotization and spurious wavebreaking, enabling accurate long-term wakefield evolution simulations.",
+    "openQuestions": "Extending declustering to fully 3D beam-plasma interaction scenarios; benchmarking long-term wake evolution against PIC and experiment; applicability to other quasistatic codes beyond LCODE.",
+    "paperIds": [
+      "arXiv.2401.11924",
+      "arXiv.1511.04193"
+    ],
+    "sources": [
+      {
+        "id": "simulation",
+        "type": "related"
+      }
+    ]
   }
 ];
