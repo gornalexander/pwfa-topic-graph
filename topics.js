@@ -597,7 +597,8 @@ const topics = [
     "status": "category",
     "tags": [
       "theory",
-      "simulation"
+      "simulation",
+      "category"
     ],
     "description": "Foundational proposal by Tajima and Dawson for using intense laser pulses to excite plasma waves capable of accelerating electrons to high energies. This seminal 1979 paper introduced the concept of laser-driven plasma wakefield acceleration, establishing the theoretical basis that later inspired proton-driven and beam-driven wakefield schemes including PWFA and AWAKE.",
     "openQuestions": null,
