@@ -25,9 +25,10 @@
   const style = document.createElement("style");
   style.textContent = `
     #edit-fab { position: fixed; top: 74px; left: 24px; z-index: 160;
-      padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(100,116,139,0.3);
-      background: rgba(15,20,35,0.9); color: #cbd5e1; font: 500 13px Inter, sans-serif;
-      cursor: pointer; backdrop-filter: blur(12px); }
+      width: 38px; height: 38px; padding: 0; display: flex; align-items: center;
+      justify-content: center; border-radius: 10px; border: 1px solid rgba(100,116,139,0.3);
+      background: rgba(15,20,35,0.9); color: #cbd5e1; cursor: pointer; backdrop-filter: blur(12px); }
+    #edit-fab svg { width: 17px; height: 17px; }
     #edit-fab:hover { color: #fff; border-color: rgba(96,165,250,0.5); }
     #edit-fab.on { background: rgba(96,165,250,0.25); color: #fff; }
     #edit-toolbar { position: fixed; top: 116px; left: 24px; z-index: 160;
@@ -98,7 +99,10 @@
   `;
   document.head.appendChild(style);
 
-  const fab = el("button", { id: "edit-fab", textContent: "Edit" });
+  const fab = el("button", { id: "edit-fab", title: "Edit" });
+  fab.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>`;
   const toolbar = el("div", { id: "edit-toolbar" });
   const form = el("div", { id: "edit-form" });
   const statusEl = el("div", { id: "edit-status" });
@@ -183,7 +187,7 @@
   function enterEdit() {
     state.editing = true;
     fab.classList.add("on");
-    fab.textContent = "Editing";
+    fab.title = "Editing — click to exit";
     toolbar.classList.add("show");
     api.applyFilter(0);
     decorateForEdit();
@@ -192,7 +196,7 @@
     state.editing = false;
     state.selectedId = null;
     fab.classList.remove("on");
-    fab.textContent = "Edit";
+    fab.title = "Edit";
     toolbar.classList.remove("show");
     closeForm();
     api.rebuild({ reheat: false });
