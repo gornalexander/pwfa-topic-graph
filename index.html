@@ -1140,6 +1140,8 @@ window.graphApi = {
   get papers() { return papers; },
   get data() { return data; },
   get nodeById() { return nodeById; },
+  get node() { return node; },
+  get link() { return link; },
   get currentLayout() { return currentLayout; },
   rebuild, renderGraph, deriveData,
   showPanel, closePanel, focusNode, applyFilter,
@@ -1151,5 +1153,7 @@ window.graphApi = {
 rebuild();
 pulseLoop();
 </script>
+<script src="config.js"></script>
+<script src="editor.js"></script>
 </body>
 </html>
