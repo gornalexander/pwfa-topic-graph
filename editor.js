@@ -531,6 +531,17 @@
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+  // Approximate a hard refresh (⌘⇧R): re-download the app files with
+  // cache:"reload" (which refreshes their HTTP-cache entries), then reload so
+  // the navigation serves the fresh copies instead of stale cached JS.
+  async function hardReload() {
+    const files = ["index.html", "config.js", "papers.js", "topics.js", "editor.js", ""];
+    try {
+      await Promise.all(files.map(f => fetch(f || ".", { cache: "reload" }).catch(() => {})));
+    } catch (_) { /* ignore */ }
+    location.reload();
+  }
+
   function showDeploy(html, opts = {}) {
     deployEl.classList.add("show");
     deployEl.classList.toggle("busy", !!opts.spinner);
@@ -543,7 +554,7 @@
       : `<div class="ds-actions"><button class="ds-btn" id="ds-close">Hide</button></div>`;
     deployEl.innerHTML = `<div class="ds-row"><span class="ds-spin"></span><span class="ds-msg">${html}</span></div>${actions}`;
     const r = deployEl.querySelector("#ds-reload");
-    if (r) r.onclick = () => location.reload();
+    if (r) r.onclick = hardReload;
     deployEl.querySelector("#ds-close").onclick = () => deployEl.classList.remove("show");
   }
 
@@ -566,9 +577,9 @@
     showDeploy("Committed ✓ — deploying to GitHub Pages… (~1 min)", { spinner: true });
     const deployed = await waitForDeploy(topicsContent);
     if (deployed) {
-      showDeploy("Deployed ✓ — your changes are live. Hard refresh with <kbd>⌘⇧R</kbd> (or <kbd>Ctrl⇧R</kbd>) to load them.", { done: true });
+      showDeploy("Deployed ✓ — your changes are live. Click <b>Reload now</b> to load them (hard refresh).", { done: true });
     } else {
-      showDeploy("Committed ✓, but the deploy is taking longer than usual. Hard refresh with <kbd>⌘⇧R</kbd> in a minute.", { done: true });
+      showDeploy("Committed ✓, but the deploy is taking longer than usual. Try <b>Reload now</b> in a minute.", { done: true });
     }
   }
 
