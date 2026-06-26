@@ -4,16 +4,14 @@
 const topics = [
   {
     "id": "electron_accel",
-    "label": "Electron\nAcceleration",
+    "label": "Plasma Wakefield\nAcceleration",
     "status": "category",
     "tags": [
       "theory",
       "experiment"
     ],
-    "description": "The central goal of proton-driven PWFA: accelerating witness electrons to high energies in the plasma wakefield. First demonstrated at AWAKE with electrons accelerated up to 2 GeV in 10 m of plasma. Beam quality, injection, and scalability are the main challenges.",
-    "paperIds": [
-      "Nature.561.363"
-    ],
+    "description": "",
+    "paperIds": [],
     "openQuestions": null,
     "sources": []
   },
@@ -66,6 +64,7 @@ const topics = [
     ],
     "description": "The Advanced Wakefield Experiment at CERN — the world's first proton-driven PWFA experiment. Uses 400 GeV proton bunches from the SPS co-propagating with a laser pulse through 10 m of rubidium vapor plasma (n₀ ~ 10¹⁴–10¹⁵ cm⁻³).",
     "paperIds": [
+      "Nature.561.363",
       "NIMA.829.76",
       "PPCF.60.014046",
       "Symmetry.14.1680"
