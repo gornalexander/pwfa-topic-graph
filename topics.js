@@ -378,6 +378,10 @@ const topics = [
       {
         "id": "pwfa",
         "type": "related"
+      },
+      {
+        "id": "electron_halo",
+        "type": "related"
       }
     ]
   },
