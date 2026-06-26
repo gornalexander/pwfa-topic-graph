@@ -97,23 +97,26 @@ async function handleCallback(url, env) {
   return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
+// Verify a GitHub token belongs to the allowed user.
+async function verifyAllowedUser(ghToken, env) {
+  if (!ghToken) return { ok: false, status: 401, error: "missing GitHub token" };
+  const r = await fetch("https://api.github.com/user", {
+    headers: { Authorization: `Bearer ${ghToken}`, "User-Agent": "pwfa-editor", Accept: "application/vnd.github+json" },
+  });
+  if (!r.ok) return { ok: false, status: 401, error: "invalid GitHub token" };
+  const user = await r.json();
+  if (user.login !== env.ALLOWED_USER) return { ok: false, status: 403, error: `user ${user.login} not allowed` };
+  return { ok: true, login: user.login };
+}
+
 // --- AI draft: verify caller, then call Anthropic ---
 async function handleDraft(request, env, cors) {
   if (request.method !== "POST") return json({ error: "POST only" }, 405, cors);
 
   const auth = request.headers.get("Authorization") || "";
   const ghToken = auth.replace(/^Bearer\s+/i, "");
-  if (!ghToken) return json({ error: "missing GitHub token" }, 401, cors);
-
-  // Verify the token belongs to the allowed user.
-  const userResp = await fetch("https://api.github.com/user", {
-    headers: { Authorization: `Bearer ${ghToken}`, "User-Agent": "pwfa-editor", Accept: "application/vnd.github+json" },
-  });
-  if (!userResp.ok) return json({ error: "invalid GitHub token" }, 401, cors);
-  const user = await userResp.json();
-  if (user.login !== env.ALLOWED_USER) {
-    return json({ error: `user ${user.login} not allowed` }, 403, cors);
-  }
+  const v = await verifyAllowedUser(ghToken, env);
+  if (!v.ok) return json({ error: v.error }, v.status, cors);
 
   const body = await request.json();
 
@@ -289,5 +292,19 @@ Shape:
 
 Existing topic ids you may reference in sources or attachToExisting: ${existingTopicIds.join(", ")}.
 Existing tags in use: ${existingTags.join(", ")}.
-Prefer reusing existing topics when the paper fits one. Keep ids lowercase snake_case.`;
+Prefer reusing existing topics when the paper fits one. Keep ids lowercase snake_case.
+
+IMPORTANT — do not invent bibliographic data. For doi, arxiv, journal, volume,
+page and the "ref" string, use ONLY values present in the FETCHED PAPER CONTENT
+above. If the DOI is not in the fetched content, set "doi" to null. If the
+journal/volume/page are not given, write ref as "FirstAuthor et al. (YEAR)"
+without inventing a journal, volume, page, or DOI. The paper id should reflect
+the real publication only if known; otherwise use "arXiv.<id>".`;
 }
+
+// Named exports so the Node host (server.mjs) can reuse the paper-reading
+// pipeline and run drafting via the Claude CLI (subscription) instead of the API.
+export {
+  corsHeaders, json, verifyAllowedUser,
+  parseLink, fetchArxiv, fetchCrossref, fetchFullText, buildDraftPrompt,
+};
