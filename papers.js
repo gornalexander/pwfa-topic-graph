@@ -313,5 +313,13 @@ const papers = {
     "doi": null,
     "arxiv": "2401.11924",
     "me": null
+  },
+  "arXiv.1511.04193": {
+    "title": "LCODE: a parallel quasistatic code for computationally heavy problems of plasma wakefield acceleration",
+    "ref": "Sosedkin et al. (2015)",
+    "authors": "Sosedkin, Lotov",
+    "doi": "10.1016/j.nima.2015.12.032",
+    "arxiv": "1511.04193",
+    "me": null
   }
 };
