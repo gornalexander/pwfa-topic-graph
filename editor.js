@@ -18,7 +18,7 @@
     clipboard: null,
     selectedId: null,
     linkDrag: null,
-    pendingPaper: null,
+    pendingPapers: {},   // id -> paper object, fetched but not yet committed
   };
 
   // ---------- styles + UI ----------
@@ -386,6 +386,12 @@
       <input id="ef-tags" value="${esc((t.tags || []).join(", "))}" />
       <label>Description</label><textarea id="ef-desc">${esc(t.description || "")}</textarea>
       <label>Open questions</label><textarea id="ef-oq">${esc(t.openQuestions || "")}</textarea>
+      <label>Add paper from link</label>
+      <div class="ef-draft">
+        <input id="ef-paper-link" placeholder="Paste DOI/arXiv link → fetch" />
+        <button class="et-btn" id="ef-paper-add">Fetch</button>
+      </div>
+      <div class="et-hint" id="ef-paper-hint"></div>
       <label>Paper IDs (comma separated)</label>
       <input id="ef-papers" value="${esc((t.paperIds || []).join(", "))}" />
       <label>Sources (id:type, comma separated)</label>
@@ -398,11 +404,46 @@
     form.classList.add("open");
 
     if (isNew) form.querySelector("#ef-draft-btn").onclick = draftFromLink;
+    form.querySelector("#ef-paper-add").onclick = addPaperFromLink;
     form.querySelector("#ef-save").onclick = () => saveForm(isNew);
     form.querySelector("#ef-cancel").onclick = closeForm;
     if (!isNew) form.querySelector("#ef-del").onclick = () => { if (confirm("Delete this topic?")) removeTopic(t.id); };
   }
-  function closeForm() { form.classList.remove("open"); state.pendingPaper = null; }
+  function closeForm() { form.classList.remove("open"); state.pendingPapers = {}; }
+
+  // Fetch a paper from a link and append it to the Paper IDs field. The paper
+  // is registered in the DB only when the form is applied.
+  async function addPaperFromLink() {
+    const link = form.querySelector("#ef-paper-link").value.trim();
+    const hint = form.querySelector("#ef-paper-hint");
+    if (!link) return;
+    if (!CONFIG.workerUrl) { hint.textContent = "Backend not configured."; return; }
+    hint.textContent = "Fetching paper…";
+    try {
+      const r = await fetch(CONFIG.workerUrl + "/ai/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${state.token}` },
+        body: JSON.stringify({
+          link,
+          existingTopicIds: api.topics.map(t => t.id),
+          existingTags: [...new Set(api.topics.flatMap(t => t.tags || []))],
+        }),
+      });
+      const out = await r.json();
+      if (!r.ok) throw new Error(out.error || "fetch failed");
+      const paper = out.draft && out.draft.paper;
+      if (!paper || !paper.id) throw new Error("no paper found at that link");
+      state.pendingPapers[paper.id] = paper;
+      const field = form.querySelector("#ef-papers");
+      const ids = field.value.split(",").map(s => s.trim()).filter(Boolean);
+      if (!ids.includes(paper.id)) ids.push(paper.id);
+      field.value = ids.join(", ");
+      hint.innerHTML = `Added <b>${esc(paper.ref || paper.id)}</b> — click Apply to save.`;
+      form.querySelector("#ef-paper-link").value = "";
+    } catch (e) {
+      hint.textContent = "Error: " + e.message;
+    }
+  }
 
   function saveForm(isNew) {
     const v = id => form.querySelector(id).value.trim();
@@ -422,12 +463,14 @@
       const [sid, type] = pair.split(":");
       return { id: sid.trim(), type: (type || "related").trim() };
     });
-    // Register a drafted paper in the DB if its id is referenced here.
-    if (state.pendingPaper && t.paperIds.includes(state.pendingPaper.id)) {
-      const { id: pid, ...rest } = state.pendingPaper;
-      api.papers[pid] = rest;
+    // Register any fetched-but-uncommitted papers referenced in paperIds.
+    for (const pid of t.paperIds) {
+      if (state.pendingPapers[pid] && !api.papers[pid]) {
+        const { id: _id, ...rest } = state.pendingPapers[pid];
+        api.papers[pid] = rest;
+      }
     }
-    state.pendingPaper = null;
+    state.pendingPapers = {};
     api.rebuild({ reheat: isNew });
     decorateForEdit();
     selectTopic(id);
@@ -462,8 +505,9 @@
   // Fill the (new-topic) form from the AI draft. Nothing is committed to the
   // data until the user clicks Apply (or "attach to existing").
   function applyDraft(draft) {
-    state.pendingPaper = (draft.paper && draft.paper.id) ? draft.paper : null;
-    const paperId = state.pendingPaper ? state.pendingPaper.id : "";
+    state.pendingPapers = {};
+    const paperId = (draft.paper && draft.paper.id) ? draft.paper.id : "";
+    if (paperId) state.pendingPapers[paperId] = draft.paper;
     const tp = draft.topic || {};
     const setv = (id, val) => { const e = form.querySelector(id); if (e) e.value = val; };
     setv("#ef-id", tp.id || "");
@@ -487,16 +531,19 @@
     }
   }
 
-  // Add the drafted paper to an existing topic instead of creating a new one.
+  // Add the drafted paper(s) to an existing topic instead of creating a new one.
   function attachPaperTo(existingId) {
     const t = api.topics.find(x => x.id === existingId);
-    if (!t || !state.pendingPaper) return;
+    const ids = Object.keys(state.pendingPapers);
+    if (!t || !ids.length) return;
     pushUndo();
-    const { id, ...rest } = state.pendingPaper;
-    api.papers[id] = rest;
     t.paperIds = t.paperIds || [];
-    if (!t.paperIds.includes(id)) t.paperIds.push(id);
-    state.pendingPaper = null;
+    for (const pid of ids) {
+      const { id: _id, ...rest } = state.pendingPapers[pid];
+      api.papers[pid] = rest;
+      if (!t.paperIds.includes(pid)) t.paperIds.push(pid);
+    }
+    state.pendingPapers = {};
     api.rebuild({ reheat: false });
     decorateForEdit();
     selectTopic(existingId);
