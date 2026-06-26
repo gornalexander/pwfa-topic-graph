@@ -439,6 +439,8 @@ function computeRanks(nodes) {
 }
 
 const rankToSize = rank => 36 / (1 + 0.4 * rank);
+// Size grows with rank (base) and with how many child bubbles link to it.
+const nodeSize = (rank, childCount) => rankToSize(rank) + 3.5 * Math.sqrt(childCount || 0);
 
 let data = { nodes: [], links: [] };
 let nodeById = new Map();
@@ -450,13 +452,16 @@ let outgoing = new Map();   // children: who I point to
 function deriveData() {
   const prev = new Map(data.nodes.map(n => [n.id, n]));
   const ranks = computeRanks(topics);
+  // Count how many bubbles link to each node (its children).
+  const childCount = {};
+  for (const t of topics) for (const s of t.sources || []) childCount[s.id] = (childCount[s.id] || 0) + 1;
   data.nodes = topics.map(t => {
     const r = ranks[t.id];
     const n = {
       ...t,
       rank: r,
       type: r <= 1 ? "category" : "topic",
-      size: rankToSize(r),
+      size: nodeSize(r, childCount[t.id]),
       papers: (t.paperIds || []).map(id => papers[id]).filter(Boolean),
     };
     const old = prev.get(t.id);
