@@ -129,10 +129,12 @@
   function setToken(token) {
     state.token = token;
     sessionStorage.setItem("pwfa_gh_token", token);
-    verify();
+    verify(true);
   }
 
-  async function verify() {
+  // enter=true only right after an explicit login; on page-load session
+  // restore (enter=false) we stay in view mode until the user clicks Edit.
+  async function verify(enter) {
     if (!state.token) return;
     try {
       const r = await fetch("https://api.github.com/user", {
@@ -142,8 +144,8 @@
       const u = await r.json();
       if (u.login !== CONFIG.allowedUser) { flash(`${u.login} is not allowed to edit`); return; }
       state.user = u.login;
-      flash(`Logged in as ${u.login}`);
-      enterEdit();
+      fab.title = `Logged in as ${u.login} — click to edit`;
+      if (enter) { flash(`Logged in as ${u.login}`); enterEdit(); }
     } catch (e) {
       state.token = null;
       sessionStorage.removeItem("pwfa_gh_token");
@@ -532,6 +534,6 @@
 
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 
-  // Resume session if a token is already stored.
-  if (state.token) verify();
+  // Resume session if a token is already stored — but stay in view mode.
+  if (state.token) verify(false);
 })();
