@@ -50,8 +50,8 @@ const topics = [
         "type": "enables"
       },
       {
-        "id": "simulation",
-        "type": "uses"
+        "id": "beam_quality",
+        "type": "related"
       }
     ]
   },
@@ -122,16 +122,8 @@ const topics = [
     "openQuestions": "Optimizing injection for high beam quality (low emittance, low energy spread) remains a key challenge for AWAKE Run 2.",
     "sources": [
       {
-        "id": "phase_reproducibility",
-        "type": "enables"
-      },
-      {
-        "id": "density_ramps",
-        "type": "affects"
-      },
-      {
-        "id": "radial_equilibrium",
-        "type": "constrains"
+        "id": "smi",
+        "type": "related"
       }
     ]
   },
@@ -151,16 +143,8 @@ const topics = [
     "openQuestions": "Achieving %-level energy spread and μm-level emittance simultaneously at GeV energies is not yet demonstrated.",
     "sources": [
       {
-        "id": "electron_injection",
-        "type": "determines"
-      },
-      {
         "id": "electron_halo",
         "type": "degrades"
-      },
-      {
-        "id": "hollow_plasma",
-        "type": "improves"
       }
     ]
   },
@@ -201,7 +185,7 @@ const topics = [
     "openQuestions": "Experimental demonstration and long-distance stability of hollow plasma channels.",
     "sources": [
       {
-        "id": "pwfa",
+        "id": "electron_accel",
         "type": "related"
       }
     ]
@@ -242,7 +226,7 @@ const topics = [
     "openQuestions": "Optimum gradient profile (step vs. continuous) and tolerance to density fluctuations in experiment are open.",
     "sources": [
       {
-        "id": "density_ramps",
+        "id": "awake",
         "type": "related"
       }
     ]
@@ -288,10 +272,6 @@ const topics = [
     ],
     "openQuestions": null,
     "sources": [
-      {
-        "id": "smi",
-        "type": "causes"
-      },
       {
         "id": "awake",
         "type": "measures"
@@ -359,10 +339,6 @@ const topics = [
       {
         "id": "smi",
         "type": "determines"
-      },
-      {
-        "id": "density_gradient",
-        "type": "controls"
       }
     ]
   },
@@ -400,11 +376,7 @@ const topics = [
     "openQuestions": null,
     "sources": [
       {
-        "id": "wavebreaking",
-        "type": "related"
-      },
-      {
-        "id": "radial_equilibrium",
+        "id": "pwfa",
         "type": "related"
       }
     ]
@@ -525,10 +497,6 @@ const topics = [
     "openQuestions": null,
     "sources": [
       {
-        "id": "defocusing",
-        "type": "measured_by"
-      },
-      {
         "id": "diagnostics",
         "type": "includes"
       }
@@ -629,6 +597,27 @@ const topics = [
       "arXiv.2401.11924",
       "arXiv.1511.04193"
     ],
+    "sources": [
+      {
+        "id": "simulation",
+        "type": "related"
+      },
+      {
+        "id": "quasistatic_approx",
+        "type": "related"
+      }
+    ]
+  },
+  {
+    "id": "quasistatic_approx",
+    "label": "Quasistatic\nApproximation",
+    "status": "partial",
+    "tags": [
+      "simulation"
+    ],
+    "description": "",
+    "openQuestions": null,
+    "paperIds": [],
     "sources": [
       {
         "id": "simulation",
