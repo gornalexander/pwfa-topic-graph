@@ -4,15 +4,15 @@
 //   sources: [{ id: "<source_node_id>", type: "<relationship>" }]
 // The relationship reads as: "<source> <type> <this node>".
 //
-// Rank is auto-computed as the shortest path (via sources) to a rank-0 node.
-// Only rank-0 nodes are marked explicitly; all others are derived.
+// Rank and size are derived purely from the link structure: a node with no
+// incoming links (empty `sources`) is a root (rank 0, biggest); every other
+// node's rank is its shortest distance from a root. Nothing is marked manually.
 
 const topics = [
-  // === RANK 0 — top-level pillars ===
+  // === Top-level pillars (no sources -> rank 0) ===
   {
     id: "electron_accel",
     label: "Electron\nAcceleration",
-    rank: 0,
     status: "category",
     tags: ["theory", "experiment"],
     description: "The central goal of proton-driven PWFA: accelerating witness electrons to high energies in the plasma wakefield. First demonstrated at AWAKE with electrons accelerated up to 2 GeV in 10 m of plasma. Beam quality, injection, and scalability are the main challenges.",
@@ -23,7 +23,6 @@ const topics = [
   {
     id: "simulation",
     label: "PIC\nSimulation",
-    rank: 0,
     status: "category",
     tags: ["simulation"],
     description: "Particle-in-cell simulation codes used to model plasma wakefield acceleration. LCODE is the primary quasistatic code developed at BINP for computationally heavy 2D axisymmetric PWFA problems.",

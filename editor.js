@@ -356,10 +356,6 @@
       <select id="ef-status">
         ${["solved", "partial", "unsolved", "category"].map(s => `<option ${t.status === s ? "selected" : ""}>${s}</option>`).join("")}
       </select>
-      <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:400;font-size:12px;color:#cbd5e1;margin-top:12px">
-        <input type="checkbox" id="ef-cat" style="width:auto" ${t.rank === 0 ? "checked" : ""}>
-        Top-level category (rank 0)
-      </label>
       <label>Tags (comma separated)</label>
       <input id="ef-tags" value="${esc((t.tags || []).join(", "))}" />
       <label>Description</label><textarea id="ef-desc">${esc(t.description || "")}</textarea>
@@ -392,9 +388,6 @@
     if (isNew) api.topics.push(t);
     t.label = v("#ef-label").replace(/\\n/g, "\n");
     t.status = v("#ef-status");
-    // Rank 0 = top-level category (set explicitly); otherwise auto-computed.
-    if (form.querySelector("#ef-cat").checked) t.rank = 0;
-    else delete t.rank;
     t.tags = v("#ef-tags").split(",").map(s => s.trim()).filter(Boolean);
     t.description = v("#ef-desc");
     t.openQuestions = v("#ef-oq") || null;

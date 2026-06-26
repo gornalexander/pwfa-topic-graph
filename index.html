@@ -415,10 +415,12 @@ function computeRanks(nodes) {
   for (const n of nodes) {
     for (const s of n.sources || []) children.get(s.id)?.push(n.id);
   }
+  // Roots (rank 0) = nodes with no incoming links (no sources). Rank is then
+  // the shortest distance from a root — derived purely from the link structure.
   const rank = {};
   const queue = [];
   for (const n of nodes) {
-    if (n.rank === 0) { rank[n.id] = 0; queue.push(n.id); }
+    if (!n.sources || n.sources.length === 0) { rank[n.id] = 0; queue.push(n.id); }
   }
   for (let i = 0; i < queue.length; i++) {
     const r = rank[queue[i]];
@@ -725,7 +727,7 @@ function trimLink(d) {
   };
 }
 
-simulation.on("tick", () => {
+function updatePositions() {
   link.each(d => { d.__p = trimLink(d); });
   link
     .attr("x1", d => d.__p.x1)
@@ -733,7 +735,8 @@ simulation.on("tick", () => {
     .attr("x2", d => d.__p.x2)
     .attr("y2", d => d.__p.y2);
   node.attr("transform", d => `translate(${d.x},${d.y})`);
-});
+}
+simulation.on("tick", updatePositions);
 
 function dragstarted(event, d) {
   if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -1132,6 +1135,9 @@ function rebuild({ reheat = true } = {}) {
   } else {
     applyForceLayout();
   }
+  // Position new/changed elements immediately (covers reheat:false, where no
+  // tick fires — e.g. a freshly added link would otherwise sit at 0,0).
+  updatePositions();
 }
 
 // API surface for editor.js (separate script, shared global scope).
