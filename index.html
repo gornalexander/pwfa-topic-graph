@@ -436,33 +436,42 @@ function computeRanks(nodes) {
   return rank;
 }
 
-const ranks = computeRanks(topics);
 const rankToSize = rank => 36 / (1 + 0.4 * rank);
 
-const data = {
-  nodes: topics.map(node => {
-    const r = ranks[node.id];
-    return {
-      ...node,
+let data = { nodes: [], links: [] };
+let nodeById = new Map();
+let incoming = new Map();   // parents: who points to me
+let outgoing = new Map();   // children: who I point to
+
+// Re-derive data + adjacency from topics/papers (re-run after edits).
+// Preserves existing node positions by id so edits don't reshuffle the layout.
+function deriveData() {
+  const prev = new Map(data.nodes.map(n => [n.id, n]));
+  const ranks = computeRanks(topics);
+  data.nodes = topics.map(t => {
+    const r = ranks[t.id];
+    const n = {
+      ...t,
       rank: r,
       type: r <= 1 ? "category" : "topic",
       size: rankToSize(r),
-      papers: (node.paperIds || []).map(id => papers[id]).filter(Boolean),
+      papers: (t.paperIds || []).map(id => papers[id]).filter(Boolean),
     };
-  }),
-  links: topics.flatMap(node =>
-    (node.sources || []).map(s => ({ source: s.id, target: node.id, type: s.type }))
-  ),
-};
-
-// Adjacency maps (built from string ids before the simulation mutates links).
-const nodeById = new Map(data.nodes.map(n => [n.id, n]));
-const incoming = new Map(data.nodes.map(n => [n.id, []])); // parents: who points to me
-const outgoing = new Map(data.nodes.map(n => [n.id, []])); // children: who I point to
-data.links.forEach(l => {
-  incoming.get(l.target)?.push({ id: l.source, type: l.type });
-  outgoing.get(l.source)?.push({ id: l.target, type: l.type });
-});
+    const old = prev.get(t.id);
+    if (old) { n.x = old.x; n.y = old.y; n.vx = old.vx; n.vy = old.vy; n.fx = old.fx; n.fy = old.fy; }
+    return n;
+  });
+  data.links = topics.flatMap(t =>
+    (t.sources || []).map(s => ({ source: s.id, target: t.id, type: s.type }))
+  );
+  nodeById = new Map(data.nodes.map(n => [n.id, n]));
+  incoming = new Map(data.nodes.map(n => [n.id, []]));
+  outgoing = new Map(data.nodes.map(n => [n.id, []]));
+  data.links.forEach(l => {
+    incoming.get(l.target)?.push({ id: l.source, type: l.type });
+    outgoing.get(l.source)?.push({ id: l.target, type: l.type });
+  });
+}
 
 // Helpers shared across pre/post-simulation link representations.
 const linkSrcId = l => (typeof l.source === "object" ? l.source.id : l.source);
@@ -536,70 +545,7 @@ function applyForceLayout() {
     .force("y", d3.forceY(cy).strength(0.04));
 }
 
-const simulation = d3.forceSimulation(data.nodes);
-applyForceLayout();
-
-// ============================================================
-// Draw links and nodes
-// ============================================================
-
-const link = g.append("g")
-  .selectAll("line")
-  .data(data.links)
-  .join("line")
-  .attr("stroke", baseLinkStroke())
-  .attr("stroke-width", baseLinkWidth());
-
-const node = g.append("g")
-  .selectAll("g")
-  .data(data.nodes)
-  .join("g")
-  .attr("cursor", "pointer")
-  .attr("opacity", 1)
-  .call(d3.drag()
-    .on("start", dragstarted)
-    .on("drag", dragged)
-    .on("end", dragended));
-
-// Halo ring (cheap, no per-node blur). Brighter + pulsing for unsolved.
-node.append("circle")
-  .attr("class", "glow-ring")
-  .attr("r", d => d.size + 3)
-  .attr("fill", "none")
-  .attr("stroke", d => statusColors[d.status])
-  .attr("stroke-width", 1.5)
-  .attr("stroke-opacity", d => d.status === "unsolved" ? 0.6 : 0.25);
-
-// Main circle
-node.append("circle")
-  .attr("class", "node-circle")
-  .attr("r", d => d.size)
-  .attr("fill", d => {
-    const c = statusColors[d.status];
-    return d.type === "category"
-      ? `rgba(${hexToRgb(c)}, 0.15)`
-      : `rgba(${hexToRgb(c)}, 0.08)`;
-  })
-  .attr("stroke", d => statusColors[d.status])
-  .attr("stroke-width", d => d.type === "category" ? 2 : 1.5)
-  .attr("stroke-opacity", d => d.type === "category" ? 0.8 : 0.5)
-  .attr("filter", d => d.type === "category" ? "url(#glow)" : null);
-
-// Labels
-node.each(function(d) {
-  const lines = d.label.split("\n");
-  const el = d3.select(this);
-  lines.forEach((line, i) => {
-    el.append("text")
-      .attr("text-anchor", "middle")
-      .attr("dy", `${(i - (lines.length - 1) / 2) * 1.15}em`)
-      .attr("font-size", d.type === "category" ? "11px" : "9.5px")
-      .attr("font-weight", d.type === "category" ? 600 : 500)
-      .attr("fill", "#e2e8f0")
-      .attr("pointer-events", "none")
-      .text(line);
-  });
-});
+const simulation = d3.forceSimulation([]);
 
 // ============================================================
 // Link styling helpers
@@ -609,16 +555,85 @@ function baseLinkStroke() { return "rgba(100,116,139,0.15)"; }
 function baseLinkWidth() { return 1.2; }
 
 // ============================================================
-// Hover interactions
+// Render (re-run after edits). Persistent layers + keyed joins.
 // ============================================================
 
-node.on("mouseenter", function(event, d) {
+const linkLayer = g.append("g");
+const nodeLayer = g.append("g");
+let link = linkLayer.selectAll("line");
+let node = nodeLayer.selectAll("g.node");
+
+function renderGraph() {
+  link = linkLayer.selectAll("line")
+    .data(data.links, d => linkSrcId(d) + "->" + linkTgtId(d))
+    .join("line")
+    .attr("stroke", baseLinkStroke())
+    .attr("stroke-width", baseLinkWidth());
+
+  node = nodeLayer.selectAll("g.node")
+    .data(data.nodes, d => d.id)
+    .join(enter => {
+      const gsel = enter.append("g").attr("class", "node")
+        .attr("cursor", "pointer").attr("opacity", 1);
+      gsel.append("circle").attr("class", "glow-ring");
+      gsel.append("circle").attr("class", "node-circle");
+      return gsel;
+    });
+
+  // (Re)apply visuals to all nodes (covers edited status/size/label).
+  node.select(".glow-ring")
+    .attr("r", d => d.size + 3)
+    .attr("fill", "none")
+    .attr("stroke", d => statusColors[d.status])
+    .attr("stroke-width", 1.5)
+    .attr("stroke-opacity", d => d.status === "unsolved" ? 0.6 : 0.25);
+
+  node.select(".node-circle")
+    .attr("r", d => d.size)
+    .attr("fill", d => {
+      const c = statusColors[d.status];
+      return d.type === "category" ? `rgba(${hexToRgb(c)}, 0.15)` : `rgba(${hexToRgb(c)}, 0.08)`;
+    })
+    .attr("stroke", d => statusColors[d.status])
+    .attr("stroke-width", d => d.type === "category" ? 2 : 1.5)
+    .attr("stroke-opacity", d => d.type === "category" ? 0.8 : 0.5)
+    .attr("filter", d => d.type === "category" ? "url(#glow)" : null);
+
+  node.each(function (d) {
+    const el = d3.select(this);
+    el.selectAll("text").remove();
+    const lines = d.label.split("\n");
+    lines.forEach((line, i) => {
+      el.append("text")
+        .attr("text-anchor", "middle")
+        .attr("dy", `${(i - (lines.length - 1) / 2) * 1.15}em`)
+        .attr("font-size", d.type === "category" ? "11px" : "9.5px")
+        .attr("font-weight", d.type === "category" ? 600 : 500)
+        .attr("fill", "#e2e8f0")
+        .attr("pointer-events", "none")
+        .text(line);
+    });
+  });
+
+  node.call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+  node.on("mouseenter", onNodeEnter)
+      .on("mousemove", onNodeMove)
+      .on("mouseleave", onNodeLeave)
+      .on("click", onNodeClick);
+
+  if (window.editor && window.editor.onRender) window.editor.onRender();
+}
+
+// ============================================================
+// Hover / click interactions
+// ============================================================
+
+function onNodeEnter(event, d) {
   d3.select(this).select(".node-circle")
     .transition().duration(200)
     .attr("stroke-opacity", 1)
     .attr("stroke-width", d.type === "category" ? 3 : 2.5);
 
-  // Collect ancestors (up to rank 0) and descendants via adjacency maps.
   const pathNodeIds = new Set();
   const pathLinkKeys = new Set();
   (function walkUp(id) {
@@ -652,30 +667,34 @@ node.on("mouseenter", function(event, d) {
   tooltip.style.left = (event.clientX + 16) + "px";
   tooltip.style.top = (event.clientY - 8) + "px";
   tooltip.style.opacity = 1;
-})
-.on("mousemove", function(event) {
+}
+
+function onNodeMove(event) {
   const tooltip = document.getElementById("tooltip");
   tooltip.style.left = (event.clientX + 16) + "px";
   tooltip.style.top = (event.clientY - 8) + "px";
-})
-.on("mouseleave", function() {
+}
+
+function onNodeLeave() {
   d3.select(this).select(".node-circle")
     .transition().duration(300)
     .attr("stroke-opacity", d => d.type === "category" ? 0.8 : 0.5)
     .attr("stroke-width", d => d.type === "category" ? 2 : 1.5);
-
   applyFilter(300);
-
   document.getElementById("tooltip").style.opacity = 0;
-})
-.on("click", function(event, d) {
-  event.stopPropagation();
-  showPanel(d);
-});
+}
 
-// Pulse animation for unsolved nodes (ring only, no filter).
-function pulseUnsolved() {
-  node.selectAll(".glow-ring")
+function onNodeClick(event, d) {
+  event.stopPropagation();
+  // In edit mode the editor intercepts clicks (returns true to consume).
+  if (window.editor && window.editor.onNodeClick && window.editor.onNodeClick(d, event)) return;
+  showPanel(d);
+}
+
+// Pulse animation for unsolved nodes (ring only, no filter). Re-selects live
+// nodes each cycle so it covers nodes added after an edit.
+function pulseLoop() {
+  nodeLayer.selectAll(".glow-ring")
     .filter(d => d.status === "unsolved")
     .transition()
     .duration(1500)
@@ -685,9 +704,8 @@ function pulseUnsolved() {
     .duration(1500)
     .attr("stroke-opacity", 0.2)
     .attr("r", d => d.size + 3)
-    .on("end", pulseUnsolved);
+    .on("end", pulseLoop);
 }
-pulseUnsolved();
 
 // ============================================================
 // Simulation tick + drag
@@ -1096,6 +1114,42 @@ window.addEventListener("resize", () => {
     switchToTree();
   }
 });
+
+// ============================================================
+// Build / rebuild (called initially and after every edit)
+// ============================================================
+
+function rebuild({ reheat = true } = {}) {
+  deriveData();
+  simulation.nodes(data.nodes);
+  renderGraph();
+  applyFilter(0);
+  if (currentLayout === "tree") {
+    switchToTree();
+  } else if (reheat) {
+    applyForceLayout();
+    simulation.alpha(0.5).alphaDecay(0.0228).restart();
+  } else {
+    applyForceLayout();
+  }
+}
+
+// API surface for editor.js (separate script, shared global scope).
+window.graphApi = {
+  get topics() { return topics; },
+  get papers() { return papers; },
+  get data() { return data; },
+  get nodeById() { return nodeById; },
+  get currentLayout() { return currentLayout; },
+  rebuild, renderGraph, deriveData,
+  showPanel, closePanel, focusNode, applyFilter,
+  statusColors, labelText,
+  svg, g, zoom, simulation,
+};
+
+// Initial draw.
+rebuild();
+pulseLoop();
 </script>
 </body>
 </html>
