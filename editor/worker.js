@@ -278,7 +278,7 @@ Shape:
     "arxiv": "NNNN.NNNNN" or null,
     "me": "first" | "coauthor" | null            // is "Gorn" an author? first author?
   },
-  "topic": {
+  "topic": {                                   // ALWAYS provide a full proposed new topic
     "id": "short_snake_case_id",
     "label": "Two line\\nLabel",
     "status": "solved" | "partial" | "unsolved",
@@ -287,12 +287,14 @@ Shape:
     "openQuestions": "..." or null,
     "sources": [{ "id": "<existing topic id>", "type": "relationship" }]
   },
-  "attachToExisting": "<existing topic id>" or null  // if the paper belongs to an existing topic instead of a new one
+  "attachToExisting": "<existing topic id>" or null  // OPTIONAL suggestion only: an existing topic this paper also fits. The user decides.
 }
 
 Existing topic ids you may reference in sources or attachToExisting: ${existingTopicIds.join(", ")}.
 Existing tags in use: ${existingTags.join(", ")}.
-Prefer reusing existing topics when the paper fits one. Keep ids lowercase snake_case.
+ALWAYS fill the "topic" object with a complete proposed new topic for this paper.
+If it also fits an existing topic, additionally set "attachToExisting" to that id
+as a suggestion (the user chooses). Keep ids lowercase snake_case.
 
 IMPORTANT — do not invent bibliographic data. For doi, arxiv, journal, volume,
 page and the "ref" string, use ONLY values present in the FETCHED PAPER CONTENT

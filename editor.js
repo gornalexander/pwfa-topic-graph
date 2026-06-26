@@ -18,6 +18,7 @@
     clipboard: null,
     selectedId: null,
     linkDrag: null,
+    pendingPaper: null,
   };
 
   // ---------- styles + UI ----------
@@ -373,7 +374,7 @@
     form.querySelector("#ef-cancel").onclick = closeForm;
     if (!isNew) form.querySelector("#ef-del").onclick = () => { if (confirm("Delete this topic?")) removeTopic(t.id); };
   }
-  function closeForm() { form.classList.remove("open"); }
+  function closeForm() { form.classList.remove("open"); state.pendingPaper = null; }
 
   function saveForm(isNew) {
     const v = id => form.querySelector(id).value.trim();
@@ -393,6 +394,12 @@
       const [sid, type] = pair.split(":");
       return { id: sid.trim(), type: (type || "related").trim() };
     });
+    // Register a drafted paper in the DB if its id is referenced here.
+    if (state.pendingPaper && t.paperIds.includes(state.pendingPaper.id)) {
+      const { id: pid, ...rest } = state.pendingPaper;
+      api.papers[pid] = rest;
+    }
+    state.pendingPaper = null;
     api.rebuild({ reheat: isNew });
     decorateForEdit();
     selectTopic(id);
@@ -418,29 +425,17 @@
       });
       const out = await r.json();
       if (!r.ok) throw new Error(out.error || "draft failed");
-      applyDraft(out.draft);
-      hint.textContent = "Draft applied — review and Apply.";
+      applyDraft(out.draft); // sets its own hint
     } catch (e) {
       hint.textContent = "Draft error: " + e.message;
     }
   }
 
+  // Fill the (new-topic) form from the AI draft. Nothing is committed to the
+  // data until the user clicks Apply (or "attach to existing").
   function applyDraft(draft) {
-    // Add the paper to the DB.
-    if (draft.paper && draft.paper.id) {
-      const { id, ...rest } = draft.paper;
-      api.papers[id] = rest;
-      draft._paperId = id;
-    }
-    if (draft.attachToExisting) {
-      // Attach paper to an existing topic instead of making a new one.
-      const t = api.topics.find(x => x.id === draft.attachToExisting);
-      if (t) { t.paperIds = t.paperIds || []; if (draft._paperId) t.paperIds.push(draft._paperId); }
-      flash(`Paper added to ${draft.attachToExisting}`);
-      api.rebuild({ reheat: false });
-      openEditForm(t);
-      return;
-    }
+    state.pendingPaper = (draft.paper && draft.paper.id) ? draft.paper : null;
+    const paperId = state.pendingPaper ? state.pendingPaper.id : "";
     const tp = draft.topic || {};
     const setv = (id, val) => { const e = form.querySelector(id); if (e) e.value = val; };
     setv("#ef-id", tp.id || "");
@@ -449,8 +444,36 @@
     setv("#ef-tags", (tp.tags || []).join(", "));
     setv("#ef-desc", tp.description || "");
     setv("#ef-oq", tp.openQuestions || "");
-    setv("#ef-papers", draft._paperId || "");
+    setv("#ef-papers", paperId);
     setv("#ef-sources", (tp.sources || []).map(s => s.id + ":" + s.type).join(", "));
+
+    const hint = form.querySelector("#ef-draft-hint");
+    const ex = draft.attachToExisting && api.topics.find(x => x.id === draft.attachToExisting);
+    if (ex) {
+      hint.innerHTML = `New topic drafted below — click <b>Apply</b> to create it. ` +
+        `This paper may also fit existing <b>${esc(api.labelText(ex))}</b>: ` +
+        `<a href="#" id="ef-attach">attach to that instead</a>.`;
+      hint.querySelector("#ef-attach").onclick = (e) => { e.preventDefault(); attachPaperTo(ex.id); };
+    } else {
+      hint.textContent = "Draft ready — review and click Apply to create the topic.";
+    }
+  }
+
+  // Add the drafted paper to an existing topic instead of creating a new one.
+  function attachPaperTo(existingId) {
+    const t = api.topics.find(x => x.id === existingId);
+    if (!t || !state.pendingPaper) return;
+    pushUndo();
+    const { id, ...rest } = state.pendingPaper;
+    api.papers[id] = rest;
+    t.paperIds = t.paperIds || [];
+    if (!t.paperIds.includes(id)) t.paperIds.push(id);
+    state.pendingPaper = null;
+    api.rebuild({ reheat: false });
+    decorateForEdit();
+    selectTopic(existingId);
+    closeForm();
+    flash(`Paper added to ${api.labelText(t)}`);
   }
 
   // ---------- save / commit ----------
