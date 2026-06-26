@@ -290,11 +290,30 @@
     flash("Redo");
   }
 
+  // Adding `from` as a parent of `to` makes a cycle iff `to` is already an
+  // ancestor of `from` (walk `from`'s sources upward and look for `to`).
+  function wouldCreateCycle(fromId, toId) {
+    const seen = new Set();
+    const stack = [fromId];
+    while (stack.length) {
+      const cur = stack.pop();
+      if (cur === toId) return true;
+      const t = api.topics.find(x => x.id === cur);
+      for (const s of (t && t.sources) || []) {
+        if (!seen.has(s.id)) { seen.add(s.id); stack.push(s.id); }
+      }
+    }
+    return false;
+  }
+
   function addLink(fromId, toId) {
     const target = api.topics.find(t => t.id === toId);
     if (!target) return;
     target.sources = target.sources || [];
     if (target.sources.some(s => s.id === fromId)) return flash("Link already exists");
+    if (wouldCreateCycle(fromId, toId)) {
+      return flash("Can't link — the target is already upstream of the source (would make a loop).");
+    }
     pushUndo();
     target.sources.push({ id: fromId, type: "related" });
     api.rebuild({ reheat: false });
