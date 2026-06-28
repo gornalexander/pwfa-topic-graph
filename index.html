@@ -81,19 +81,22 @@
   /* Info panel */
   #info-panel {
     position: fixed;
-    right: -420px;
+    right: 0;
     top: 0;
     width: 400px;
     height: 100vh;
     background: rgba(15,20,35,0.97);
     border-left: 1px solid rgba(100,116,139,0.2);
     backdrop-filter: blur(20px);
-    padding: 28px;
-    overflow-y: auto;
-    transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    transform: translateX(110%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 200;
   }
-  #info-panel.open { right: 0; }
+  #info-panel.open { transform: translateX(0); }
+  #panel-scroll { height: 100%; overflow-y: auto; padding: 28px; }
+  @keyframes panelFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  #panel-content.fade { animation: panelFade 0.28s ease; }
 
   #info-panel .close-btn {
     position: absolute;
@@ -111,6 +114,7 @@
     justify-content: center;
     font-size: 16px;
     transition: all 0.15s;
+    z-index: 5;
   }
   #info-panel .close-btn:hover {
     background: rgba(51,65,85,0.8);
@@ -198,7 +202,7 @@
   .paper-links .preview-btn:hover { background: rgba(167,139,250,0.28); }
 
   /* Detailed article view (rendered inside the side panel, which widens) */
-  #info-panel.detailed { width: 620px; right: 0; }
+  #info-panel.detailed { width: 620px; }
   @media (max-width: 680px) { #info-panel.detailed { width: 100vw; } }
   .detail-back {
     background: none; border: none; color: #818cf8; font: 600 12px Inter; cursor: pointer;
@@ -432,9 +436,9 @@
   }
 
   /* Scrollbar */
-  #info-panel::-webkit-scrollbar { width: 4px; }
-  #info-panel::-webkit-scrollbar-track { background: transparent; }
-  #info-panel::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 4px; }
+  #panel-scroll::-webkit-scrollbar { width: 4px; }
+  #panel-scroll::-webkit-scrollbar-track { background: transparent; }
+  #panel-scroll::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -472,7 +476,7 @@
 
 <div id="info-panel">
   <button class="close-btn" onclick="closePanel()">&times;</button>
-  <div id="panel-content"></div>
+  <div id="panel-scroll"><div id="panel-content"></div></div>
 </div>
 
 <div class="tooltip" id="tooltip"></div>
@@ -902,6 +906,14 @@ function dragended(event, d) {
 
 let panelNode = null;   // the topic currently shown, so the detailed view can go back
 
+// Re-trigger the fade-in animation on the panel content each time it changes.
+function fadePanel() {
+  const c = document.getElementById("panel-content");
+  c.classList.remove("fade");
+  void c.offsetWidth;   // reflow so the animation restarts
+  c.classList.add("fade");
+}
+
 function showPanel(d) {
   const panel = document.getElementById("info-panel");
   const content = document.getElementById("panel-content");
@@ -959,6 +971,8 @@ function showPanel(d) {
   html += `</div>`;
 
   content.innerHTML = html;
+  document.getElementById("panel-scroll").scrollTop = 0;
+  fadePanel();
   content.querySelectorAll(".connected-item").forEach(el => {
     el.addEventListener("click", () => navigateToNode(el.dataset.nodeId));
   });
@@ -983,8 +997,9 @@ async function openDetailed(p) {
   const content = document.getElementById("panel-content");
   const base = apiBase();
   panel.classList.add("detailed");
-  panel.scrollTop = 0;
+  document.getElementById("panel-scroll").scrollTop = 0;
   content.innerHTML = "";
+  fadePanel();
 
   const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const link = (href, txt) => { const a = el("a", null, txt); a.href = href; a.target = "_blank"; a.rel = "noopener"; return a; };
