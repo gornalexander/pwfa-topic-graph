@@ -147,14 +147,68 @@ async function serveArxivPdf(rawId, res) {
   fs.createReadStream(file).pipe(res);
 }
 
+// --- Article info (abstract + figures), cached as JSON. Public. ---
+const ARTICLE_CACHE = `${PAPERS_DIR}/cache/article`;
+
+async function extractFiguresAr5iv(id) {
+  try {
+    const r = await fetch(`https://ar5iv.org/abs/${id}`, { headers: { "User-Agent": "pwfa-editor" }, redirect: "follow" });
+    if (!r.ok) return [];
+    const html = await r.text();
+    const figs = [...html.matchAll(/<img[^>]+src="(\/html\/[^"]+\/assets\/[^"]+\.(?:png|jpe?g|svg|gif))"/gi)]
+      .map(m => "https://ar5iv.org" + m[1]);
+    return [...new Set(figs)];
+  } catch { return []; }
+}
+
+async function serveArticle(kind, raw, origin, cors, res) {
+  const key = (kind + "_" + decodeURIComponent(raw)).replace(/[^a-z0-9._-]/gi, "_");
+  const file = `${ARTICLE_CACHE}/${key}.json`;
+  try {
+    const cached = await fsp.readFile(file, "utf8");
+    res.writeHead(200, { "Content-Type": "application/json", ...cors });
+    return res.end(cached);
+  } catch { /* not cached, build it */ }
+
+  let out = { abstract: null, title: null, authors: [], figures: [], pdf: null };
+  try {
+    if (kind === "arxiv") {
+      const id = decodeURIComponent(raw);
+      const meta = await fetchArxiv(id).catch(() => ({}));
+      const figures = await extractFiguresAr5iv(id);
+      out = {
+        title: meta.title || null, authors: meta.authors || [],
+        abstract: meta.abstract || null, figures,
+        pdf: `${origin.replace(/\/$/, "")}/pdf/arxiv/${encodeURIComponent(id)}`,
+      };
+    } else if (kind === "doi") {
+      const meta = await fetchCrossref(decodeURIComponent(raw)).catch(() => ({}));
+      out = { title: meta.title || null, authors: meta.authors || [], abstract: meta.abstract || null, figures: [], pdf: null };
+    }
+  } catch (e) { out.error = e.message; }
+
+  const body = JSON.stringify(out);
+  try { await fsp.mkdir(ARTICLE_CACHE, { recursive: true }); await fsp.writeFile(file, body); } catch {}
+  res.writeHead(200, { "Content-Type": "application/json", ...cors });
+  res.end(body);
+}
+
 http.createServer(async (req, res) => {
   try {
     const origin = env.PUBLIC_ORIGIN || `http://${req.headers.host}`;
     const url = origin.replace(/\/$/, "") + req.url;
+    const pubCors = { "Access-Control-Allow-Origin": "*" };
 
     // Public arXiv PDF proxy — handled directly (streams a file).
     if (req.method === "GET" && req.url.startsWith("/pdf/arxiv/")) {
       return serveArxivPdf(req.url.slice("/pdf/arxiv/".length), res);
+    }
+    // Public article info (abstract + figures).
+    if (req.method === "GET" && req.url.startsWith("/article/arxiv/")) {
+      return serveArticle("arxiv", req.url.slice("/article/arxiv/".length), origin, pubCors, res);
+    }
+    if (req.method === "GET" && req.url.startsWith("/article/doi/")) {
+      return serveArticle("doi", req.url.slice("/article/doi/".length), origin, pubCors, res);
     }
 
     const hasBody = !["GET", "HEAD"].includes(req.method);
