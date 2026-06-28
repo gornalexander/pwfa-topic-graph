@@ -47,10 +47,6 @@ const topics = [
     "sources": [
       {
         "id": "electron_accel",
-        "type": "enables"
-      },
-      {
-        "id": "beam_quality",
         "type": "related"
       }
     ]
@@ -143,8 +139,12 @@ const topics = [
     "openQuestions": "Achieving %-level energy spread and μm-level emittance simultaneously at GeV energies is not yet demonstrated.",
     "sources": [
       {
-        "id": "electron_halo",
-        "type": "degrades"
+        "id": "laser_wakefield",
+        "type": "related"
+      },
+      {
+        "id": "pwfa",
+        "type": "related"
       }
     ]
   },
@@ -378,10 +378,6 @@ const topics = [
       {
         "id": "pwfa",
         "type": "related"
-      },
-      {
-        "id": "electron_halo",
-        "type": "related"
       }
     ]
   },
@@ -523,6 +519,10 @@ const topics = [
       {
         "id": "wavebreaking",
         "type": "causes"
+      },
+      {
+        "id": "narrow_plasma",
+        "type": "related"
       }
     ]
   },
@@ -581,10 +581,6 @@ const topics = [
       {
         "id": "electron_accel",
         "type": "related"
-      },
-      {
-        "id": "beam_quality",
-        "type": "related"
       }
     ]
   },
@@ -602,10 +598,6 @@ const topics = [
       "arXiv.1511.04193"
     ],
     "sources": [
-      {
-        "id": "simulation",
-        "type": "related"
-      },
       {
         "id": "quasistatic_approx",
         "type": "related"
