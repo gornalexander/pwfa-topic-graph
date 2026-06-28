@@ -141,12 +141,7 @@ const topics = [
       "PRAB.20.101301"
     ],
     "openQuestions": "Achieving %-level energy spread and μm-level emittance simultaneously at GeV energies is not yet demonstrated.",
-    "sources": [
-      {
-        "id": "electron_halo",
-        "type": "degrades"
-      }
-    ]
+    "sources": []
   },
   {
     "id": "wavebreaking",
@@ -378,10 +373,6 @@ const topics = [
       {
         "id": "pwfa",
         "type": "related"
-      },
-      {
-        "id": "electron_halo",
-        "type": "related"
       }
     ]
   },
@@ -521,8 +512,12 @@ const topics = [
     "openQuestions": "Halo formation mechanism when beam and plasma densities are comparable is not fully understood.",
     "sources": [
       {
+        "id": "narrow_plasma",
+        "type": "related"
+      },
+      {
         "id": "wavebreaking",
-        "type": "causes"
+        "type": "related"
       }
     ]
   },
