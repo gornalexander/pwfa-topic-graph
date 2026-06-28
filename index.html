@@ -189,6 +189,30 @@
     border: 1px solid rgba(52,211,153,0.2);
   }
   .paper-links a.arxiv-link:hover { background: rgba(52,211,153,0.25); }
+  .paper-links .preview-btn {
+    font: 600 10px Inter; padding: 1px 7px; border-radius: 4px; cursor: pointer;
+    color: #a78bfa; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25);
+  }
+  .paper-links .preview-btn:hover { background: rgba(167,139,250,0.28); }
+
+  /* PDF preview modal */
+  #pdf-modal {
+    position: fixed; inset: 0; z-index: 400; display: none; flex-direction: column;
+    background: rgba(5,8,16,0.93); backdrop-filter: blur(4px);
+  }
+  #pdf-modal.open { display: flex; }
+  #pdf-modal .pm-bar {
+    display: flex; align-items: center; gap: 14px; padding: 10px 18px;
+    color: #cbd5e1; font: 500 13px Inter;
+  }
+  #pdf-modal #pm-title { font-weight: 600; }
+  #pdf-modal #pm-open { margin-left: auto; color: #60a5fa; text-decoration: none; font-size: 12px; }
+  #pdf-modal #pm-open:hover { color: #93c5fd; }
+  #pdf-modal #pm-close {
+    background: none; border: none; color: #cbd5e1; font-size: 26px; cursor: pointer; line-height: 1;
+  }
+  #pdf-modal #pm-close:hover { color: #fff; }
+  #pdf-modal iframe { flex: 1; width: 100%; border: none; background: #1e1e1e; }
 
   .connected-item {
     padding: 6px 10px;
@@ -399,6 +423,15 @@
 </div>
 
 <div class="tooltip" id="tooltip"></div>
+
+<div id="pdf-modal">
+  <div class="pm-bar">
+    <span id="pm-title"></span>
+    <a id="pm-open" target="_blank" rel="noopener">Open on arXiv ↗</a>
+    <button id="pm-close" title="Close">&times;</button>
+  </div>
+  <iframe id="pm-frame" title="PDF preview"></iframe>
+</div>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="papers.js"></script>
@@ -829,6 +862,7 @@ function showPanel(d) {
       let links = '<div class="paper-links">';
       if (p.doi) links += `<a class="doi-link" href="https://doi.org/${p.doi}" target="_blank" rel="noopener">DOI</a>`;
       if (p.arxiv) links += `<a class="arxiv-link" href="https://arxiv.org/abs/${p.arxiv}" target="_blank" rel="noopener">arXiv</a>`;
+      if (p.arxiv) links += `<button class="preview-btn" data-arxiv="${p.arxiv}">Preview</button>`;
       links += '</div>';
       html += `<div class="paper-item"><div class="paper-title">${p.title}</div><div class="paper-ref">${p.ref}</div>${links}</div>`;
     });
@@ -861,8 +895,27 @@ function showPanel(d) {
   content.querySelectorAll(".connected-item").forEach(el => {
     el.addEventListener("click", () => navigateToNode(el.dataset.nodeId));
   });
+  content.querySelectorAll(".preview-btn").forEach(el => {
+    el.addEventListener("click", () => openPdfPreview(el.dataset.arxiv));
+  });
   panel.classList.add("open");
 }
+
+// PDF preview modal (public — arXiv only, proxied + cached by the VPS backend).
+function openPdfPreview(arxivId) {
+  const base = (typeof CONFIG !== "undefined" && CONFIG.workerUrl) ? CONFIG.workerUrl : "";
+  if (!base) { window.open("https://arxiv.org/pdf/" + arxivId, "_blank"); return; }
+  document.getElementById("pm-title").textContent = "arXiv:" + arxivId;
+  document.getElementById("pm-open").href = "https://arxiv.org/abs/" + arxivId;
+  document.getElementById("pm-frame").src = base.replace(/\/$/, "") + "/pdf/arxiv/" + encodeURIComponent(arxivId);
+  document.getElementById("pdf-modal").classList.add("open");
+}
+function closePdfPreview() {
+  document.getElementById("pdf-modal").classList.remove("open");
+  document.getElementById("pm-frame").src = "about:blank";
+}
+document.getElementById("pm-close").addEventListener("click", closePdfPreview);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closePdfPreview(); });
 
 function closePanel() {
   document.getElementById("info-panel").classList.remove("open");

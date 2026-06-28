@@ -4,11 +4,16 @@
 //   (Claude Code, authenticated by the subscription token CLAUDE_CODE_OAUTH_TOKEN)
 //   instead of the paid Anthropic API.
 import http from "node:http";
+import fs from "node:fs";
+import fsp from "node:fs/promises";
 import { spawn } from "node:child_process";
 import worker, {
   corsHeaders, json, verifyAllowedUser,
   parseLink, fetchArxiv, fetchCrossref, fetchFullText, buildDraftPrompt,
 } from "./worker.mjs";
+
+const PAPERS_DIR = process.env.PAPERS_DIR || "/srv/papers";
+const ARXIV_CACHE = `${PAPERS_DIR}/cache/arxiv`;
 
 const PORT = process.env.PORT || 8787;
 const env = {
@@ -108,10 +113,50 @@ async function runDraft(request, cors) {
   return json({ draft }, 200, cors);
 }
 
+// --- Public arXiv PDF proxy (open access): fetch once, cache, serve inline ---
+function validArxivId(id) {
+  return /^[0-9]{4}\.[0-9]{4,6}(v[0-9]+)?$/.test(id) || /^[a-z.-]+\/[0-9]{7}(v[0-9]+)?$/i.test(id);
+}
+async function serveArxivPdf(rawId, res) {
+  const id = decodeURIComponent(rawId).replace(/\.pdf$/i, "").trim();
+  if (!validArxivId(id)) { res.writeHead(400); return res.end("bad arxiv id"); }
+  const safe = id.replace(/[^a-z0-9.]/gi, "_");
+  const file = `${ARXIV_CACHE}/${safe}.pdf`;
+  let cached = true;
+  try { await fsp.access(file); } catch { cached = false; }
+  if (!cached) {
+    try {
+      const r = await fetch(`https://arxiv.org/pdf/${id}`, {
+        headers: { "User-Agent": "pwfa-editor (paper preview)" }, redirect: "follow",
+      });
+      if (!r.ok) { res.writeHead(502); return res.end("arxiv fetch failed"); }
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.subarray(0, 4).toString("latin1") !== "%PDF") { res.writeHead(502); return res.end("not a pdf yet"); }
+      await fsp.mkdir(ARXIV_CACHE, { recursive: true });
+      await fsp.writeFile(file, buf);
+    } catch (e) {
+      res.writeHead(502); return res.end("fetch error: " + e.message);
+    }
+  }
+  res.writeHead(200, {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `inline; filename="${safe}.pdf"`,
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "public, max-age=86400",
+  });
+  fs.createReadStream(file).pipe(res);
+}
+
 http.createServer(async (req, res) => {
   try {
     const origin = env.PUBLIC_ORIGIN || `http://${req.headers.host}`;
     const url = origin.replace(/\/$/, "") + req.url;
+
+    // Public arXiv PDF proxy — handled directly (streams a file).
+    if (req.method === "GET" && req.url.startsWith("/pdf/arxiv/")) {
+      return serveArxivPdf(req.url.slice("/pdf/arxiv/".length), res);
+    }
+
     const hasBody = !["GET", "HEAD"].includes(req.method);
     const bodyBuf = hasBody ? await readBody(req) : undefined;
     const request = new Request(url, {
