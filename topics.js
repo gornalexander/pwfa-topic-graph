@@ -46,8 +46,12 @@ const topics = [
     "openQuestions": null,
     "sources": [
       {
+        "id": "beam_quality",
+        "type": "related"
+      },
+      {
         "id": "electron_accel",
-        "type": "enables"
+        "type": "related"
       }
     ]
   },
@@ -139,12 +143,8 @@ const topics = [
     "openQuestions": "Achieving %-level energy spread and μm-level emittance simultaneously at GeV energies is not yet demonstrated.",
     "sources": [
       {
-        "id": "pwfa",
-        "type": "related"
-      },
-      {
-        "id": "laser_wakefield",
-        "type": "related"
+        "id": "electron_halo",
+        "type": "degrades"
       }
     ]
   },
@@ -378,6 +378,10 @@ const topics = [
       {
         "id": "pwfa",
         "type": "related"
+      },
+      {
+        "id": "electron_halo",
+        "type": "related"
       }
     ]
   },
@@ -517,12 +521,8 @@ const topics = [
     "openQuestions": "Halo formation mechanism when beam and plasma densities are comparable is not fully understood.",
     "sources": [
       {
-        "id": "narrow_plasma",
-        "type": "related"
-      },
-      {
         "id": "wavebreaking",
-        "type": "related"
+        "type": "causes"
       }
     ]
   },
@@ -579,6 +579,10 @@ const topics = [
     ],
     "sources": [
       {
+        "id": "beam_quality",
+        "type": "related"
+      },
+      {
         "id": "electron_accel",
         "type": "related"
       }
@@ -598,10 +602,6 @@ const topics = [
       "arXiv.1511.04193"
     ],
     "sources": [
-      {
-        "id": "simulation",
-        "type": "related"
-      },
       {
         "id": "quasistatic_approx",
         "type": "related"
