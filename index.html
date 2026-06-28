@@ -203,7 +203,13 @@
 
   /* Detailed article view (rendered inside the side panel, which widens) */
   #info-panel.detailed { width: 620px; }
-  @media (max-width: 680px) { #info-panel.detailed { width: 100vw; } }
+  /* Lay the content out at the FINAL width while the panel widens, so the text is
+     revealed by the expanding panel instead of re-wrapping (no reflow). */
+  #info-panel.detailed #panel-scroll { width: 620px; }
+  @media (max-width: 680px) {
+    #info-panel.detailed { width: 100vw; }
+    #info-panel.detailed #panel-scroll { width: 100vw; }
+  }
   .detail-back {
     background: none; border: none; color: #818cf8; font: 600 12px Inter; cursor: pointer;
     padding: 0; margin-bottom: 14px;
