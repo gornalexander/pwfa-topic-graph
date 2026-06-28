@@ -191,48 +191,60 @@
   .paper-links a.arxiv-link:hover { background: rgba(52,211,153,0.25); }
   .paper-card { cursor: pointer; transition: background 0.15s, border-color 0.15s; }
   .paper-card:hover { background: rgba(99,102,241,0.12); border-color: rgba(129,140,248,0.4); }
+  .paper-links .preview-btn {
+    font: 600 10px Inter; padding: 1px 8px; border-radius: 4px; cursor: pointer;
+    color: #a78bfa; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.28);
+  }
+  .paper-links .preview-btn:hover { background: rgba(167,139,250,0.28); }
 
-  /* Article modal */
-  #article-modal {
-    position: fixed; inset: 0; z-index: 400; display: none;
-    background: rgba(5,8,16,0.86); backdrop-filter: blur(4px);
-    padding: 4vh 16px; overflow-y: auto;
+  /* Detailed article view (rendered inside the side panel, which widens) */
+  #info-panel.detailed { width: 620px; right: 0; }
+  @media (max-width: 680px) { #info-panel.detailed { width: 100vw; } }
+  .detail-back {
+    background: none; border: none; color: #818cf8; font: 600 12px Inter; cursor: pointer;
+    padding: 0; margin-bottom: 14px;
   }
-  #article-modal.open { display: block; }
-  #article-modal .am-dialog {
-    position: relative; max-width: 920px; margin: 0 auto;
-    background: #0f1629; border: 1px solid rgba(148,163,184,0.18); border-radius: 14px;
-    padding: 28px 32px 36px; color: #e2e8f0; box-shadow: 0 24px 80px rgba(0,0,0,0.55);
-  }
-  #article-modal .am-close {
-    position: absolute; top: 14px; right: 16px; background: none; border: none;
-    color: #94a3b8; font-size: 28px; line-height: 1; cursor: pointer;
-  }
-  #article-modal .am-close:hover { color: #fff; }
-  #article-modal h2 { margin: 0 40px 6px 0; font-size: 18px; font-weight: 700; line-height: 1.35; }
-  #article-modal .am-authors { color: #cbd5e1; font-size: 12.5px; margin-bottom: 2px; }
-  #article-modal .am-ref { color: #94a3b8; font-size: 12px; font-style: italic; margin-bottom: 10px; }
-  #article-modal .am-links { display: flex; gap: 10px; margin-bottom: 18px; }
-  #article-modal .am-links a {
-    font: 600 11px Inter; padding: 3px 10px; border-radius: 5px; text-decoration: none;
+  .detail-back:hover { color: #a5b4fc; }
+  .detail-title { margin: 0 30px 6px 0; font-size: 18px; font-weight: 700; line-height: 1.35; color: #f1f5f9; }
+  .detail-authors { color: #cbd5e1; font-size: 12.5px; margin-bottom: 2px; }
+  .detail-ref { color: #94a3b8; font-size: 12px; font-style: italic; margin-bottom: 14px; }
+  .detail-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .detail-actions a {
+    font: 600 11px Inter; padding: 4px 11px; border-radius: 5px; text-decoration: none;
     color: #93c5fd; background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.28);
   }
-  #article-modal .am-links a:hover { background: rgba(96,165,250,0.25); }
-  #article-modal section { margin-top: 22px; }
-  #article-modal h4 {
-    margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-    text-transform: uppercase; color: #818cf8;
+  .detail-actions a:hover { background: rgba(96,165,250,0.25); }
+  .preview-btn-lg {
+    font: 600 11px Inter; padding: 4px 12px; border-radius: 5px; cursor: pointer;
+    color: #c4b5fd; background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35);
   }
-  #article-modal .am-abstract { margin: 0; font-size: 13.5px; line-height: 1.6; color: #d1d5db; }
-  #article-modal .am-figures {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;
-  }
-  #article-modal .am-figures img {
-    width: 100%; height: 130px; object-fit: contain; background: #fff;
+  .preview-btn-lg:hover { background: rgba(167,139,250,0.3); }
+  .detail-abstract { margin: 0; font-size: 13.5px; line-height: 1.6; color: #d1d5db; }
+  .detail-keyresults { font-size: 13px; color: #cbd5e1; }
+  .detail-keyresults .kr-list { margin: 0; padding-left: 18px; }
+  .detail-keyresults .kr-list li { margin-bottom: 7px; line-height: 1.5; }
+  .detail-figures { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .detail-figures img {
+    width: 100%; height: 140px; object-fit: contain; background: #fff;
     border-radius: 8px; padding: 6px; cursor: zoom-in; transition: transform 0.12s;
   }
-  #article-modal .am-figures img:hover { transform: scale(1.03); }
-  #article-modal #am-pdf { width: 100%; height: 78vh; border: none; border-radius: 8px; background: #1e1e1e; }
+  .detail-figures img:hover { transform: scale(1.03); }
+
+  /* Full-screen PDF preview overlay */
+  #pdf-overlay {
+    position: fixed; inset: 0; z-index: 450; display: none; flex-direction: column;
+    background: rgba(5,8,16,0.93); backdrop-filter: blur(4px);
+  }
+  #pdf-overlay.open { display: flex; }
+  #pdf-overlay .po-bar {
+    display: flex; align-items: center; gap: 14px; padding: 10px 18px; color: #cbd5e1; font: 500 13px Inter;
+  }
+  #pdf-overlay #po-title { font-weight: 600; }
+  #pdf-overlay #po-open { margin-left: auto; color: #60a5fa; text-decoration: none; font-size: 12px; }
+  #pdf-overlay #po-open:hover { color: #93c5fd; }
+  #pdf-overlay #po-close { background: none; border: none; color: #cbd5e1; font-size: 26px; cursor: pointer; line-height: 1; }
+  #pdf-overlay #po-close:hover { color: #fff; }
+  #pdf-overlay iframe { flex: 1; width: 100%; border: none; background: #1e1e1e; }
 
   /* Figure lightbox */
   #fig-lightbox {
@@ -457,17 +469,13 @@
 
 <div class="tooltip" id="tooltip"></div>
 
-<div id="article-modal">
-  <div class="am-dialog">
-    <button id="am-close" class="am-close" title="Close">&times;</button>
-    <h2 id="am-title"></h2>
-    <div id="am-authors" class="am-authors"></div>
-    <div id="am-ref" class="am-ref"></div>
-    <div id="am-links" class="am-links"></div>
-    <section><h4>Summary</h4><p id="am-abstract" class="am-abstract"></p></section>
-    <section id="am-figures-section"><h4>Figures</h4><div id="am-figures" class="am-figures"></div></section>
-    <section id="am-pdf-wrap"><h4>Full paper</h4><iframe id="am-pdf" title="PDF"></iframe></section>
+<div id="pdf-overlay">
+  <div class="po-bar">
+    <span id="po-title"></span>
+    <a id="po-open" target="_blank" rel="noopener">Open on arXiv ↗</a>
+    <button id="po-close" title="Close">&times;</button>
   </div>
+  <iframe id="po-frame" title="PDF preview"></iframe>
 </div>
 
 <div id="fig-lightbox">
@@ -881,9 +889,13 @@ function dragended(event, d) {
 // Info panel
 // ============================================================
 
+let panelNode = null;   // the topic currently shown, so the detailed view can go back
+
 function showPanel(d) {
   const panel = document.getElementById("info-panel");
   const content = document.getElementById("panel-content");
+  panelNode = d;
+  panel.classList.remove("detailed");
 
   const statusLabel = {solved: "Well Understood", partial: "Partially Solved", unsolved: "Open Problem", category: "Category"}[d.status];
   const badgeClass = d.status === "category" ? "category-badge" : d.status;
@@ -904,6 +916,7 @@ function showPanel(d) {
       let links = '<div class="paper-links">';
       if (p.doi) links += `<a class="doi-link" href="https://doi.org/${p.doi}" target="_blank" rel="noopener">DOI</a>`;
       if (p.arxiv) links += `<a class="arxiv-link" href="https://arxiv.org/abs/${p.arxiv}" target="_blank" rel="noopener">arXiv</a>`;
+      if (p.arxiv) links += `<button class="preview-btn" data-preview="${p.arxiv}">Preview</button>`;
       links += '</div>';
       const ea = s => String(s || "").replace(/"/g, "&quot;");
       html += `<div class="paper-item paper-card" data-arxiv="${ea(p.arxiv)}" data-doi="${ea(p.doi)}" data-title="${ea(p.title)}" data-ref="${ea(p.ref)}">`
@@ -941,58 +954,112 @@ function showPanel(d) {
   content.querySelectorAll(".paper-card").forEach(el => {
     el.addEventListener("click", (e) => {
       if (e.target.closest("a")) return; // let DOI/arXiv links open normally
-      openArticle({ arxiv: el.dataset.arxiv, doi: el.dataset.doi, title: el.dataset.title, ref: el.dataset.ref });
+      const btn = e.target.closest(".preview-btn");
+      if (btn) { e.stopPropagation(); openPdfOverlay(btn.dataset.preview); return; }
+      openDetailed({ arxiv: el.dataset.arxiv, doi: el.dataset.doi, title: el.dataset.title, ref: el.dataset.ref });
     });
   });
   panel.classList.add("open");
 }
 
-// In-page Article view: summary + figures + embedded PDF (all proxied/cached by the VPS).
 function apiBase() {
   return (typeof CONFIG !== "undefined" && CONFIG.workerUrl) ? CONFIG.workerUrl.replace(/\/$/, "") : "";
 }
-async function openArticle(p) {
-  const $ = id => document.getElementById(id);
-  $("am-title").textContent = p.title || "Article";
-  $("am-ref").textContent = p.ref || "";
-  $("am-authors").textContent = "";
-  $("am-abstract").textContent = "Loading…";
-  $("am-figures").innerHTML = "";
-  $("am-figures-section").style.display = "none";
-  const links = $("am-links"); links.innerHTML = "";
-  if (p.doi) links.innerHTML += `<a href="https://doi.org/${p.doi}" target="_blank" rel="noopener">DOI ↗</a>`;
-  if (p.arxiv) links.innerHTML += `<a href="https://arxiv.org/abs/${p.arxiv}" target="_blank" rel="noopener">arXiv ↗</a>`;
-  const base = apiBase();
-  const pdfWrap = $("am-pdf-wrap");
-  if (p.arxiv && base) {
-    pdfWrap.style.display = "";
-    $("am-pdf").src = base + "/pdf/arxiv/" + encodeURIComponent(p.arxiv);
-  } else { pdfWrap.style.display = "none"; $("am-pdf").src = "about:blank"; }
-  $("article-modal").classList.add("open");
 
-  if (!base) { $("am-abstract").textContent = "Backend unavailable — abstract can't be loaded."; return; }
-  const path = p.arxiv ? "/article/arxiv/" + encodeURIComponent(p.arxiv)
-             : p.doi ? "/article/doi/" + encodeURIComponent(p.doi) : null;
-  if (!path) { $("am-abstract").textContent = "No abstract available."; return; }
-  try {
-    const d = await (await fetch(base + path)).json();
-    $("am-abstract").textContent = d.abstract || "No abstract available.";
-    if (d.authors && d.authors.length) $("am-authors").textContent = d.authors.join(", ");
-    if (d.figures && d.figures.length) {
-      const wrap = $("am-figures");
-      d.figures.forEach((url, i) => {
-        const im = document.createElement("img");
-        im.src = url; im.loading = "lazy"; im.alt = "Figure " + (i + 1);
-        im.addEventListener("click", () => openFig(url));
-        wrap.appendChild(im);
-      });
-      $("am-figures-section").style.display = "";
-    }
-  } catch (e) { $("am-abstract").textContent = "Could not load article info."; }
+// Detailed article view rendered INTO the side panel (Back returns to the topic).
+async function openDetailed(p) {
+  const panel = document.getElementById("info-panel");
+  const content = document.getElementById("panel-content");
+  const base = apiBase();
+  panel.classList.add("detailed");
+  panel.scrollTop = 0;
+  content.innerHTML = "";
+
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  const link = (href, txt) => { const a = el("a", null, txt); a.href = href; a.target = "_blank"; a.rel = "noopener"; return a; };
+
+  const back = el("button", "detail-back", "← Back");
+  back.addEventListener("click", () => { if (panelNode) showPanel(panelNode); });
+  content.appendChild(back);
+  content.appendChild(el("h2", "detail-title", p.title || "Article"));
+  const authors = el("div", "detail-authors"); content.appendChild(authors);
+  content.appendChild(el("div", "detail-ref", p.ref || ""));
+
+  const actions = el("div", "detail-actions");
+  if (p.doi) actions.appendChild(link("https://doi.org/" + p.doi, "DOI ↗"));
+  if (p.arxiv) actions.appendChild(link("https://arxiv.org/abs/" + p.arxiv, "arXiv ↗"));
+  if (p.arxiv && base) {
+    const b = el("button", "preview-btn-lg", "◳ Preview PDF");
+    b.addEventListener("click", () => openPdfOverlay(p.arxiv));
+    actions.appendChild(b);
+  }
+  content.appendChild(actions);
+
+  content.appendChild(el("h3", null, "Summary"));
+  const abs = el("p", "detail-abstract", "Loading…"); content.appendChild(abs);
+  content.appendChild(el("h3", null, "Key Results"));
+  const kr = el("div", "detail-keyresults", "Loading…"); content.appendChild(kr);
+  const figH = el("h3", null, "Figures"); figH.style.display = "none"; content.appendChild(figH);
+  const figs = el("div", "detail-figures"); content.appendChild(figs);
+
+  if (!base) { abs.textContent = "Backend unavailable."; kr.textContent = "—"; return; }
+
+  const apath = p.arxiv ? "/article/arxiv/" + encodeURIComponent(p.arxiv)
+              : p.doi ? "/article/doi/" + encodeURIComponent(p.doi) : null;
+  if (apath) {
+    fetch(base + apath).then(r => r.json()).then(d => {
+      abs.textContent = d.abstract || "No abstract available.";
+      if (d.authors && d.authors.length) {
+        const a = d.authors;
+        authors.textContent = a.length > 10 ? a.slice(0, 8).join(", ") + " … +" + (a.length - 8) + " more" : a.join(", ");
+      }
+      if (d.figures && d.figures.length) {
+        figH.style.display = "";
+        d.figures.forEach((url, i) => {
+          const im = document.createElement("img");
+          im.src = url; im.loading = "lazy"; im.alt = "Figure " + (i + 1);
+          im.addEventListener("click", () => openFig(url));
+          figs.appendChild(im);
+        });
+      }
+    }).catch(() => { abs.textContent = "Could not load article info."; });
+  } else { abs.textContent = "No abstract available."; }
+
+  if (p.arxiv) {
+    const tok = sessionStorage.getItem("pwfa_gh_token");
+    fetch(base + "/article/keyresults/arxiv/" + encodeURIComponent(p.arxiv),
+      tok ? { headers: { Authorization: "Bearer " + tok } } : {})
+      .then(r => r.json()).then(d => renderKeyResults(kr, d)).catch(() => { kr.textContent = "—"; });
+  } else { kr.textContent = "Key results are available for arXiv papers."; }
 }
-function closeArticle() {
-  document.getElementById("article-modal").classList.remove("open");
-  document.getElementById("am-pdf").src = "about:blank";
+
+function renderKeyResults(kr, d) {
+  kr.innerHTML = "";
+  if (d.keyResults && d.keyResults.length) {
+    const ul = document.createElement("ul"); ul.className = "kr-list";
+    d.keyResults.forEach(t => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+    kr.appendChild(ul);
+  } else if (d.busy) {
+    kr.textContent = "Generating… reopen this paper in a moment.";
+  } else if (d.pending) {
+    kr.textContent = "Not generated yet — appears once the author opens this paper while logged in.";
+  } else {
+    kr.textContent = "—";
+  }
+}
+
+// Full-screen PDF preview overlay (opened by Preview buttons on the card and detail view).
+function openPdfOverlay(arxivId) {
+  const base = apiBase();
+  if (!base) { window.open("https://arxiv.org/pdf/" + arxivId, "_blank"); return; }
+  document.getElementById("po-title").textContent = "arXiv:" + arxivId;
+  document.getElementById("po-open").href = "https://arxiv.org/abs/" + arxivId;
+  document.getElementById("po-frame").src = base + "/pdf/arxiv/" + encodeURIComponent(arxivId);
+  document.getElementById("pdf-overlay").classList.add("open");
+}
+function closePdfOverlay() {
+  document.getElementById("pdf-overlay").classList.remove("open");
+  document.getElementById("po-frame").src = "about:blank";
 }
 function openFig(url) {
   const lb = document.getElementById("fig-lightbox");
@@ -1000,13 +1067,13 @@ function openFig(url) {
   lb.classList.add("open");
 }
 function closeFig() { document.getElementById("fig-lightbox").classList.remove("open"); }
-document.getElementById("am-close").addEventListener("click", closeArticle);
+document.getElementById("po-close").addEventListener("click", closePdfOverlay);
 document.getElementById("fig-close").addEventListener("click", closeFig);
 document.getElementById("fig-lightbox").addEventListener("click", e => { if (e.target.id === "fig-lightbox") closeFig(); });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (document.getElementById("fig-lightbox").classList.contains("open")) closeFig();
-  else if (document.getElementById("article-modal").classList.contains("open")) closeArticle();
+  else if (document.getElementById("pdf-overlay").classList.contains("open")) closePdfOverlay();
 });
 
 function closePanel() {

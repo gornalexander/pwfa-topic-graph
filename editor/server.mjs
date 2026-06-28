@@ -6,6 +6,8 @@
 import http from "node:http";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { spawn } from "node:child_process";
 import worker, {
   corsHeaders, json, verifyAllowedUser,
@@ -147,6 +149,110 @@ async function serveArxivPdf(rawId, res) {
   fs.createReadStream(file).pipe(res);
 }
 
+// --- High-quality figures from the arXiv source tarball ---
+const FIG_CACHE = `${PAPERS_DIR}/cache/figs`;   // /figs/<id>/NN.png + manifest.json
+
+function run(cmd, args) {
+  return new Promise((resolve) => {
+    const p = spawn(cmd, args);
+    let err = "";
+    p.stderr?.on("data", d => (err += d));
+    p.on("close", code => resolve({ code, err }));
+    p.on("error", e => resolve({ code: -1, err: e.message }));
+  });
+}
+
+// Download source, follow \includegraphics order, convert each figure to a
+// high-res PNG, cache under /figs/<id>/. Returns served URLs (empty on failure).
+async function prepareFigures(id, origin) {
+  const safe = id.replace(/[^a-z0-9.]/gi, "_");
+  const dir = `${FIG_CACHE}/${safe}`;
+  const base = origin.replace(/\/$/, "");
+  try {
+    const m = JSON.parse(await fsp.readFile(`${dir}/manifest.json`, "utf8"));
+    return m.map(f => `${base}/fig/arxiv/${encodeURIComponent(id)}/${f}`);
+  } catch { /* build */ }
+
+  const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "arx-"));
+  try {
+    const r = await fetch(`https://arxiv.org/e-print/${id}`, { headers: { "User-Agent": "pwfa-editor" }, redirect: "follow" });
+    if (!r.ok) throw new Error("eprint " + r.status);
+    const tgz = `${tmp}/src.tar.gz`;
+    await fsp.writeFile(tgz, Buffer.from(await r.arrayBuffer()));
+    if ((await run("tar", ["xzf", tgz, "-C", tmp])).code !== 0) throw new Error("not a tarball");
+
+    const all = await fsp.readdir(tmp, { recursive: true });
+    const byRel = new Map(), byBase = new Map();
+    for (const rel of all) {
+      const low = rel.toLowerCase().replace(/^\.\//, "");
+      byRel.set(low, path.join(tmp, rel));
+      const b = path.basename(low);
+      if (!byBase.has(b)) byBase.set(b, path.join(tmp, rel));
+    }
+    // collect \includegraphics targets in document order
+    const texFiles = all.filter(f => f.toLowerCase().endsWith(".tex"));
+    const targets = [];
+    for (const tf of texFiles) {
+      const tex = await fsp.readFile(path.join(tmp, tf), "utf8").catch(() => "");
+      for (const m of tex.matchAll(/\\includegraphics(?:\[[^\]]*\])?\s*\{([^}]+)\}/g)) {
+        const t = m[1].trim();
+        if (!targets.includes(t)) targets.push(t);
+      }
+    }
+    const exts = ["", ".pdf", ".png", ".jpg", ".jpeg", ".eps", ".ps"];
+    const resolve1 = (arg) => {
+      const a = arg.toLowerCase().replace(/^\.\//, "");
+      for (const e of exts) { const k = a + e; if (byRel.has(k)) return byRel.get(k); }
+      for (const e of exts) { const k = path.basename(a) + e; if (byBase.has(k)) return byBase.get(k); }
+      return null;
+    };
+
+    await fsp.mkdir(dir, { recursive: true });
+    const manifest = [];
+    let i = 0;
+    for (const t of targets) {
+      if (manifest.length >= 14) break;
+      const src = resolve1(t);
+      if (!src) continue;
+      const ext = path.extname(src).toLowerCase();
+      const name = String(i).padStart(2, "0") + ".png";
+      const outNoExt = `${dir}/${String(i).padStart(2, "0")}`;
+      let ok = false;
+      if (ext === ".pdf") {
+        ok = (await run("pdftoppm", ["-png", "-f", "1", "-l", "1", "-singlefile", "-scale-to", "1500", src, outNoExt])).code === 0;
+      } else if (ext === ".eps" || ext === ".ps") {
+        ok = (await run("gs", ["-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=pngalpha", "-r200", `-sOutputFile=${dir}/${name}`, src])).code === 0;
+      } else if ([".png", ".jpg", ".jpeg", ".gif"].includes(ext)) {
+        try { await fsp.copyFile(src, `${dir}/${name}`); ok = true; } catch {}
+      }
+      if (ok) { try { await fsp.access(`${dir}/${name}`); manifest.push(name); i++; } catch {} }
+    }
+    if (!manifest.length) throw new Error("no figures");
+    await fsp.writeFile(`${dir}/manifest.json`, JSON.stringify(manifest));
+    return manifest.map(f => `${base}/fig/arxiv/${encodeURIComponent(id)}/${f}`);
+  } catch {
+    return [];
+  } finally {
+    fsp.rm(tmp, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function serveFig(rest, res) {
+  const [rawId, fileRaw] = rest.split("/");
+  const id = decodeURIComponent(rawId || "");
+  const fileName = (fileRaw || "").trim();
+  if (!/^[0-9]{2}\.png$/.test(fileName)) { res.writeHead(400); return res.end("bad fig"); }
+  const safe = id.replace(/[^a-z0-9.]/gi, "_");
+  const file = `${FIG_CACHE}/${safe}/${fileName}`;
+  try { await fsp.access(file); } catch { res.writeHead(404); return res.end("no fig"); }
+  res.writeHead(200, {
+    "Content-Type": "image/png",
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "public, max-age=604800",
+  });
+  fs.createReadStream(file).pipe(res);
+}
+
 // --- Article info (abstract + figures), cached as JSON. Public. ---
 const ARTICLE_CACHE = `${PAPERS_DIR}/cache/article`;
 
@@ -175,7 +281,8 @@ async function serveArticle(kind, raw, origin, cors, res) {
     if (kind === "arxiv") {
       const id = decodeURIComponent(raw);
       const meta = await fetchArxiv(id).catch(() => ({}));
-      const figures = await extractFiguresAr5iv(id);
+      let figures = await prepareFigures(id, origin);   // high-res from source
+      if (!figures.length) figures = await extractFiguresAr5iv(id);  // fallback
       out = {
         title: meta.title || null, authors: meta.authors || [],
         abstract: meta.abstract || null, figures,
@@ -193,6 +300,46 @@ async function serveArticle(kind, raw, origin, cors, res) {
   res.end(body);
 }
 
+// --- AI "key results": owner generates (cached), everyone reads the cache. ---
+const KEYRES_CACHE = `${PAPERS_DIR}/cache/keyresults`;
+let keyResInFlight = false;
+
+async function serveKeyResults(rawId, authHeader, cors, res) {
+  const id = decodeURIComponent(rawId);
+  const safe = id.replace(/[^a-z0-9.]/gi, "_");
+  const file = `${KEYRES_CACHE}/${safe}.json`;
+  const send = (obj, status = 200) => { res.writeHead(status, { "Content-Type": "application/json", ...cors }); res.end(JSON.stringify(obj)); };
+  try { return send(JSON.parse(await fsp.readFile(file, "utf8"))); } catch { /* not cached */ }
+
+  // Generation is gated to the owner; anonymous visitors just see "not ready".
+  const token = (authHeader || "").replace(/^Bearer\s+/i, "");
+  const v = await verifyAllowedUser(token, env);
+  if (!v.ok) return send({ keyResults: null, pending: true });
+  if (keyResInFlight) return send({ keyResults: null, busy: true });
+
+  keyResInFlight = true;
+  try {
+    const meta = await fetchArxiv(id).catch(() => ({}));
+    const full = await fetchFullText(id).catch(() => null);
+    const prompt = `You are summarizing a scientific paper for a research dashboard.
+Title: ${meta.title || ""}
+Abstract: ${meta.abstract || ""}
+${full ? "Full text excerpt:\n" + String(full).slice(0, 12000) : ""}
+
+List the 3 to 6 most important KEY RESULTS / findings of this paper as concise, specific bullet points (one sentence each, quantitative where the paper gives numbers). Exclude background and methodology. Respond with ONLY JSON: {"keyResults": ["...", "..."]}`;
+    const text = await runClaude(prompt);
+    let keyResults = [];
+    try { const m = text.match(/\{[\s\S]*\}/); keyResults = JSON.parse(m ? m[0] : text).keyResults || []; } catch {}
+    const out = { keyResults: Array.isArray(keyResults) ? keyResults : [] };
+    try { await fsp.mkdir(KEYRES_CACHE, { recursive: true }); await fsp.writeFile(file, JSON.stringify(out)); } catch {}
+    return send(out);
+  } catch (e) {
+    return send({ keyResults: null, error: e.message }, 502);
+  } finally {
+    keyResInFlight = false;
+  }
+}
+
 http.createServer(async (req, res) => {
   try {
     const origin = env.PUBLIC_ORIGIN || `http://${req.headers.host}`;
@@ -202,6 +349,14 @@ http.createServer(async (req, res) => {
     // Public arXiv PDF proxy — handled directly (streams a file).
     if (req.method === "GET" && req.url.startsWith("/pdf/arxiv/")) {
       return serveArxivPdf(req.url.slice("/pdf/arxiv/".length), res);
+    }
+    // Public high-res figure images.
+    if (req.method === "GET" && req.url.startsWith("/fig/arxiv/")) {
+      return serveFig(req.url.slice("/fig/arxiv/".length), res);
+    }
+    // AI key results (owner generates, cached; public reads cache).
+    if (req.method === "GET" && req.url.startsWith("/article/keyresults/arxiv/")) {
+      return serveKeyResults(req.url.slice("/article/keyresults/arxiv/".length), req.headers.authorization, pubCors, res);
     }
     // Public article info (abstract + figures).
     if (req.method === "GET" && req.url.startsWith("/article/arxiv/")) {
