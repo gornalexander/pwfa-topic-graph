@@ -267,6 +267,26 @@ async function extractFiguresAr5iv(id) {
   } catch { return []; }
 }
 
+function decodeEntities(s) {
+  return String(s)
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => { try { return String.fromCodePoint(parseInt(h, 16)); } catch { return " "; } })
+    .replace(/&#(\d+);/g, (_, d) => { try { return String.fromCodePoint(parseInt(d, 10)); } catch { return " "; } })
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&nbsp;/g, " ").replace(/&[a-z]+;/gi, " ");
+}
+
+// Figure captions from ar5iv, in document (figure) order.
+async function extractCaptionsAr5iv(id) {
+  try {
+    const r = await fetch(`https://ar5iv.org/abs/${id}`, { headers: { "User-Agent": "pwfa-editor" }, redirect: "follow" });
+    if (!r.ok) return [];
+    const html = await r.text();
+    return [...html.matchAll(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/gi)]
+      .map(m => decodeEntities(m[1].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim())
+      .filter(c => /^fig/i.test(c));   // figures only (drop tables etc.), keeps figure order
+  } catch { return []; }
+}
+
 async function serveArticle(kind, raw, origin, cors, res) {
   const key = (kind + "_" + decodeURIComponent(raw)).replace(/[^a-z0-9._-]/gi, "_");
   const file = `${ARTICLE_CACHE}/${key}.json`;
@@ -281,8 +301,10 @@ async function serveArticle(kind, raw, origin, cors, res) {
     if (kind === "arxiv") {
       const id = decodeURIComponent(raw);
       const meta = await fetchArxiv(id).catch(() => ({}));
-      let figures = await prepareFigures(id, origin);   // high-res from source
-      if (!figures.length) figures = await extractFiguresAr5iv(id);  // fallback
+      let figUrls = await prepareFigures(id, origin);   // high-res from source
+      if (!figUrls.length) figUrls = await extractFiguresAr5iv(id);  // fallback
+      const caps = await extractCaptionsAr5iv(id);
+      const figures = figUrls.map((url, i) => ({ url, caption: caps[i] || "" }));
       out = {
         title: meta.title || null, authors: meta.authors || [],
         abstract: meta.abstract || null, figures,
