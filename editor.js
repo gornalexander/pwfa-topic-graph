@@ -10,7 +10,7 @@
   if (!api) { console.error("graphApi not found"); return; }
 
   const state = {
-    token: sessionStorage.getItem("pwfa_gh_token") || null,
+    token: localStorage.getItem("pwfa_gh_token") || null,
     user: null,
     editing: false,
     undo: [],
@@ -24,10 +24,23 @@
   // ---------- styles + UI ----------
   const style = document.createElement("style");
   style.textContent = `
-    #edit-fab { position: fixed; top: 74px; left: 24px; z-index: 160;
-      width: 38px; height: 38px; padding: 0; display: flex; align-items: center;
+    #editor-bar { position: fixed; top: 74px; left: 24px; z-index: 160; display: flex; gap: 8px; align-items: center; }
+    #account-btn { height: 38px; padding: 0 13px; border-radius: 10px; border: 1px solid rgba(100,116,139,0.3);
+      background: rgba(15,20,35,0.9); color: #cbd5e1; cursor: pointer; backdrop-filter: blur(12px);
+      font: 500 12px Inter, sans-serif; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+    #account-btn:hover { color: #fff; border-color: rgba(96,165,250,0.5); }
+    #account-btn .dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; flex: none; }
+    #account-menu { position: fixed; top: 118px; left: 24px; z-index: 161; display: none;
+      flex-direction: column; background: rgba(15,20,35,0.97); border: 1px solid rgba(100,116,139,0.25);
+      border-radius: 10px; padding: 6px; backdrop-filter: blur(12px); min-width: 150px; }
+    #account-menu.show { display: flex; }
+    #account-menu button { padding: 7px 10px; border-radius: 7px; border: none; background: none;
+      color: #cbd5e1; font: 500 12px Inter, sans-serif; cursor: pointer; text-align: left; }
+    #account-menu button:hover { background: rgba(51,65,85,0.7); color: #fff; }
+    #edit-fab { width: 38px; height: 38px; padding: 0; display: none; align-items: center;
       justify-content: center; border-radius: 10px; border: 1px solid rgba(100,116,139,0.3);
       background: rgba(15,20,35,0.9); color: #cbd5e1; cursor: pointer; backdrop-filter: blur(12px); }
+    #edit-fab.available { display: flex; }
     #edit-fab svg { width: 17px; height: 17px; }
     #edit-fab:hover { color: #fff; border-color: rgba(96,165,250,0.5); }
     #edit-fab.on { background: rgba(96,165,250,0.25); color: #fff; }
@@ -103,11 +116,16 @@
   fab.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
     stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>`;
+  const account = el("button", { id: "account-btn" });
+  const accountMenu = el("div", { id: "account-menu" });
+  accountMenu.innerHTML = `<button data-act="logout">Log out</button>`;
+  const bar = el("div", { id: "editor-bar" });
+  bar.append(account, fab);
   const toolbar = el("div", { id: "edit-toolbar" });
   const form = el("div", { id: "edit-form" });
   const statusEl = el("div", { id: "edit-status" });
   const deployEl = el("div", { id: "deploy-status" });
-  document.body.append(fab, toolbar, form, statusEl, deployEl);
+  document.body.append(bar, accountMenu, toolbar, form, statusEl, deployEl);
 
   toolbar.innerHTML = `
     <button class="et-btn primary" data-act="add">+ Add topic</button>
@@ -134,11 +152,22 @@
     flash._t = setTimeout(() => statusEl.classList.remove("show"), 2200);
   }
 
-  // ---------- auth ----------
+  // ---------- auth (login is independent of edit mode) ----------
+  account.addEventListener("click", () => {
+    if (state.user) accountMenu.classList.toggle("show");
+    else login();
+  });
+  accountMenu.addEventListener("click", (e) => {
+    if (e.target.dataset.act === "logout") { accountMenu.classList.remove("show"); logout(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (!accountMenu.contains(e.target) && e.target !== account) accountMenu.classList.remove("show");
+  });
+
+  // The pencil only appears once logged in; it just toggles edit mode.
   fab.addEventListener("click", () => {
-    if (state.editing) { exitEdit(); return; }
-    if (state.user) { enterEdit(); return; }
-    login();
+    if (!state.user) { login(); return; }
+    state.editing ? exitEdit() : enterEdit();
   });
 
   function login() {
@@ -158,13 +187,12 @@
 
   function setToken(token) {
     state.token = token;
-    sessionStorage.setItem("pwfa_gh_token", token);
+    localStorage.setItem("pwfa_gh_token", token);   // persists across browser sessions
     verify(true);
   }
 
-  // enter=true only right after an explicit login; on page-load session
-  // restore (enter=false) we stay in view mode until the user clicks Edit.
-  async function verify(enter) {
+  // Authenticate + update the account UI. Logging in does NOT enter edit mode.
+  async function verify(announce) {
     if (!state.token) return;
     try {
       const r = await fetch("https://api.github.com/user", {
@@ -172,14 +200,39 @@
       });
       if (!r.ok) throw new Error("bad token");
       const u = await r.json();
-      if (u.login !== CONFIG.allowedUser) { flash(`${u.login} is not allowed to edit`); return; }
+      if (u.login !== CONFIG.allowedUser) { flash(`${u.login} is not allowed to edit`); logout(); return; }
       state.user = u.login;
-      fab.title = `Logged in as ${u.login} — click to edit`;
-      if (enter) { flash(`Logged in as ${u.login}`); enterEdit(); }
+      updateAccountUI();
+      if (announce) flash(`Logged in as ${u.login}`);
     } catch (e) {
       state.token = null;
-      sessionStorage.removeItem("pwfa_gh_token");
-      flash("Login expired — click Edit to log in again");
+      state.user = null;
+      localStorage.removeItem("pwfa_gh_token");
+      updateAccountUI();
+      if (announce) flash("Login failed or expired");
+    }
+  }
+
+  function logout() {
+    if (state.editing) exitEdit();
+    state.token = null;
+    state.user = null;
+    localStorage.removeItem("pwfa_gh_token");
+    updateAccountUI();
+    flash("Logged out");
+  }
+
+  function updateAccountUI() {
+    if (state.user) {
+      account.innerHTML = `<span class="dot"></span>${state.user}`;
+      account.title = "Account";
+      fab.classList.add("available");
+      if (!state.editing) fab.title = "Edit";
+    } else {
+      account.textContent = "Login";
+      account.title = "Log in to edit";
+      fab.classList.remove("available", "on");
+      accountMenu.classList.remove("show");
     }
   }
 
@@ -385,7 +438,7 @@
       return true;
     },
     isEditing: () => state.editing,
-    _forceEnable: (token) => { state.user = CONFIG.allowedUser; state.token = token || "test"; enterEdit(); },
+    _forceEnable: (token) => { state.user = CONFIG.allowedUser; state.token = token || "test"; updateAccountUI(); enterEdit(); },
   };
 
   // ---------- edit/add form ----------
@@ -686,6 +739,8 @@
 
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 
-  // Resume session if a token is already stored — but stay in view mode.
+  // Show the Login button immediately, then resume a stored session (staying in
+  // view mode — login is independent of edit).
+  updateAccountUI();
   if (state.token) verify(false);
 })();
