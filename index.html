@@ -1041,11 +1041,24 @@ async function openDetailed(p) {
   } else { abs.textContent = "No abstract available."; }
 
   if (p.arxiv) {
-    const tok = sessionStorage.getItem("pwfa_gh_token");
-    fetch(base + "/article/keyresults/arxiv/" + encodeURIComponent(p.arxiv),
-      tok ? { headers: { Authorization: "Bearer " + tok } } : {})
-      .then(r => r.json()).then(d => renderKeyResults(kr, d)).catch(() => { kr.textContent = "—"; });
+    kr.textContent = "Generating key results — first time can take up to ~1 min…";
+    loadKeyResults(base, p.arxiv, kr, 0);
   } else { kr.textContent = "Key results are available for arXiv papers."; }
+}
+
+// Fetch key results; if the server is busy generating another, retry a few times.
+function loadKeyResults(base, arxiv, kr, attempt) {
+  fetch(base + "/article/keyresults/arxiv/" + encodeURIComponent(arxiv))
+    .then(r => r.json())
+    .then(d => {
+      if (d.busy && attempt < 12) {
+        kr.textContent = "Generating key results — the server is busy, retrying…";
+        setTimeout(() => loadKeyResults(base, arxiv, kr, attempt + 1), 8000);
+      } else {
+        renderKeyResults(kr, d);
+      }
+    })
+    .catch(() => { kr.textContent = "Could not load key results."; });
 }
 
 function renderKeyResults(kr, d) {
@@ -1055,9 +1068,9 @@ function renderKeyResults(kr, d) {
     d.keyResults.forEach(t => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
     kr.appendChild(ul);
   } else if (d.busy) {
-    kr.textContent = "Generating… reopen this paper in a moment.";
-  } else if (d.pending) {
-    kr.textContent = "Not generated yet — appears once the author opens this paper while logged in.";
+    kr.textContent = "Server busy — reopen this paper in a moment.";
+  } else if (d.error) {
+    kr.textContent = "Key results unavailable for this paper.";
   } else {
     kr.textContent = "—";
   }

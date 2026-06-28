@@ -322,7 +322,9 @@ async function serveArticle(kind, raw, origin, cors, res) {
   res.end(body);
 }
 
-// --- AI "key results": owner generates (cached), everyone reads the cache. ---
+// --- AI "key results": generated once on first view, cached, served to all. ---
+// Not login-gated so it works for everyone; a single-flight guard caps load to
+// one Claude run at a time so it can't stack up and starve the box.
 const KEYRES_CACHE = `${PAPERS_DIR}/cache/keyresults`;
 let keyResInFlight = false;
 
@@ -333,10 +335,6 @@ async function serveKeyResults(rawId, authHeader, cors, res) {
   const send = (obj, status = 200) => { res.writeHead(status, { "Content-Type": "application/json", ...cors }); res.end(JSON.stringify(obj)); };
   try { return send(JSON.parse(await fsp.readFile(file, "utf8"))); } catch { /* not cached */ }
 
-  // Generation is gated to the owner; anonymous visitors just see "not ready".
-  const token = (authHeader || "").replace(/^Bearer\s+/i, "");
-  const v = await verifyAllowedUser(token, env);
-  if (!v.ok) return send({ keyResults: null, pending: true });
   if (keyResInFlight) return send({ keyResults: null, busy: true });
 
   keyResInFlight = true;
