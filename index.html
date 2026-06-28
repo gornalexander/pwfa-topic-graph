@@ -265,42 +265,62 @@
   }
   .detail-figures img:hover { transform: scale(1.03); }
 
-  /* Full-screen PDF preview overlay */
+  /* PDF preview — centered dialog over a dimmed backdrop */
   #pdf-overlay {
-    position: fixed; inset: 0; z-index: 450; display: none; flex-direction: column;
-    background: rgba(5,8,16,0.93); backdrop-filter: blur(4px);
+    position: fixed; inset: 0; z-index: 450; display: none; align-items: center; justify-content: center;
+    background: rgba(2,4,10,0.7); backdrop-filter: blur(3px); padding: 4vh 4vw;
   }
   #pdf-overlay.open { display: flex; }
+  #pdf-overlay .po-dialog {
+    display: flex; flex-direction: column; width: min(960px, 92vw); height: min(90vh, 1100px);
+    background: #0f1629; border: 1px solid rgba(148,163,184,0.18); border-radius: 12px;
+    overflow: hidden; box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+  }
   #pdf-overlay .po-bar {
-    display: flex; align-items: center; gap: 14px; padding: 10px 18px; color: #cbd5e1; font: 500 13px Inter;
+    display: flex; align-items: center; gap: 14px; padding: 10px 16px; color: #cbd5e1; font: 500 13px Inter;
+    border-bottom: 1px solid rgba(148,163,184,0.12);
   }
   #pdf-overlay #po-title { font-weight: 600; }
   #pdf-overlay #po-open { margin-left: auto; color: #60a5fa; text-decoration: none; font-size: 12px; }
   #pdf-overlay #po-open:hover { color: #93c5fd; }
-  #pdf-overlay #po-close { background: none; border: none; color: #cbd5e1; font-size: 26px; cursor: pointer; line-height: 1; }
+  #pdf-overlay #po-close { background: none; border: none; color: #cbd5e1; font-size: 24px; cursor: pointer; line-height: 1; }
   #pdf-overlay #po-close:hover { color: #fff; }
   #pdf-overlay iframe { flex: 1; width: 100%; border: none; background: #1e1e1e; }
 
-  /* Figure lightbox */
+  /* Figure lightbox with zoom/pan */
   #fig-lightbox {
-    position: fixed; inset: 0; z-index: 500; display: none; align-items: center; justify-content: center;
-    background: rgba(2,4,10,0.92); padding: 4vh 4vw;
+    position: fixed; inset: 0; z-index: 500; display: none; flex-direction: column;
+    background: rgba(2,4,10,0.92); padding: 3vh 3vw;
   }
   #fig-lightbox.open { display: flex; }
-  #fig-lightbox .fl-inner {
-    display: flex; flex-direction: column; align-items: center; gap: 14px;
-    max-height: 92vh; max-width: 100%;
+  #fig-lightbox .fl-stage {
+    flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
-  #fig-lightbox img { max-width: 100%; max-height: 78vh; background: #fff; border-radius: 8px; padding: 10px; }
+  #fig-lightbox img {
+    max-width: 100%; max-height: 100%; background: #fff; border-radius: 8px; padding: 10px;
+    transform-origin: center center; user-select: none; -webkit-user-drag: none;
+  }
+  #fig-lightbox img.zoomed { cursor: grab; }
+  #fig-lightbox img.grabbing { cursor: grabbing; }
   #fig-lightbox #fig-caption {
-    max-width: 820px; color: #cbd5e1; font-size: 13px; line-height: 1.55; text-align: left;
-    overflow-y: auto; padding: 0 8px;
+    flex: none; max-width: 900px; margin: 12px auto 0; color: #cbd5e1; font-size: 13px;
+    line-height: 1.55; text-align: center; max-height: 16vh; overflow-y: auto; padding: 0 8px;
   }
   #fig-lightbox #fig-close {
     position: absolute; top: 18px; right: 24px; background: none; border: none;
-    color: #cbd5e1; font-size: 32px; line-height: 1; cursor: pointer; z-index: 1;
+    color: #cbd5e1; font-size: 32px; line-height: 1; cursor: pointer; z-index: 2;
   }
   #fig-lightbox #fig-close:hover { color: #fff; }
+  #fig-lightbox .fl-zoom {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px;
+    background: rgba(15,20,35,0.92); border: 1px solid rgba(100,116,139,0.3); border-radius: 10px;
+    padding: 5px; backdrop-filter: blur(10px); z-index: 2;
+  }
+  #fig-lightbox .fl-zoom button {
+    width: 34px; height: 30px; border: none; background: none; color: #cbd5e1;
+    font-size: 17px; cursor: pointer; border-radius: 6px; line-height: 1;
+  }
+  #fig-lightbox .fl-zoom button:hover { background: rgba(51,65,85,0.7); color: #fff; }
 
   .connected-item {
     padding: 6px 10px;
@@ -525,19 +545,24 @@
 <div class="tooltip" id="tooltip"></div>
 
 <div id="pdf-overlay">
-  <div class="po-bar">
-    <span id="po-title"></span>
-    <a id="po-open" target="_blank" rel="noopener">Open on arXiv ↗</a>
-    <button id="po-close" title="Close">&times;</button>
+  <div class="po-dialog">
+    <div class="po-bar">
+      <span id="po-title"></span>
+      <a id="po-open" target="_blank" rel="noopener">Open on arXiv ↗</a>
+      <button id="po-close" title="Close">&times;</button>
+    </div>
+    <iframe id="po-frame" title="PDF preview"></iframe>
   </div>
-  <iframe id="po-frame" title="PDF preview"></iframe>
 </div>
 
 <div id="fig-lightbox">
   <button id="fig-close" title="Close">&times;</button>
-  <div class="fl-inner">
-    <img alt="figure">
-    <div id="fig-caption"></div>
+  <div class="fl-stage"><img alt="figure"></div>
+  <div id="fig-caption"></div>
+  <div class="fl-zoom">
+    <button data-z="out" title="Zoom out">−</button>
+    <button data-z="reset" title="Reset zoom">⟲</button>
+    <button data-z="in" title="Zoom in">+</button>
   </div>
 </div>
 
@@ -1161,18 +1186,63 @@ function closePdfOverlay() {
   document.getElementById("pdf-overlay").classList.remove("open");
   document.getElementById("po-frame").src = "about:blank";
 }
+// --- Figure lightbox with zoom + pan ---
+const figState = { scale: 1, tx: 0, ty: 0, drag: null };
+function figImg() { return document.querySelector("#fig-lightbox img"); }
+function figApply() {
+  const img = figImg();
+  img.style.transform = `translate(${figState.tx}px, ${figState.ty}px) scale(${figState.scale})`;
+  img.classList.toggle("zoomed", figState.scale > 1);
+}
+function figReset() { figState.scale = 1; figState.tx = 0; figState.ty = 0; figApply(); }
+function figZoomBy(factor) {
+  figState.scale = Math.max(1, Math.min(8, figState.scale * factor));
+  if (figState.scale === 1) { figState.tx = 0; figState.ty = 0; }
+  figApply();
+}
 function openFig(url, caption) {
   const lb = document.getElementById("fig-lightbox");
-  lb.querySelector("img").src = url;
+  figImg().src = url;
   const cap = document.getElementById("fig-caption");
   cap.textContent = caption || "";
   cap.style.display = caption ? "" : "none";
+  figReset();
   lb.classList.add("open");
 }
 function closeFig() { document.getElementById("fig-lightbox").classList.remove("open"); }
+
+// zoom/pan wiring (set up once)
+(function () {
+  const lb = document.getElementById("fig-lightbox");
+  const stage = lb.querySelector(".fl-stage");
+  const img = figImg();
+  stage.addEventListener("wheel", (e) => { e.preventDefault(); figZoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18); }, { passive: false });
+  img.addEventListener("dblclick", () => (figState.scale > 1 ? figReset() : figZoomBy(2.5)));
+  img.addEventListener("mousedown", (e) => {
+    if (figState.scale <= 1) return;
+    e.preventDefault();
+    figState.drag = { x: e.clientX, y: e.clientY, tx: figState.tx, ty: figState.ty };
+    img.classList.add("grabbing");
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!figState.drag) return;
+    figState.tx = figState.drag.tx + (e.clientX - figState.drag.x);
+    figState.ty = figState.drag.ty + (e.clientY - figState.drag.y);
+    figApply();
+  });
+  window.addEventListener("mouseup", () => { figState.drag = null; img.classList.remove("grabbing"); });
+  lb.querySelector(".fl-zoom").addEventListener("click", (e) => {
+    const z = e.target.dataset.z;
+    if (z === "in") figZoomBy(1.4); else if (z === "out") figZoomBy(1 / 1.4); else if (z === "reset") figReset();
+  });
+  // click the empty backdrop (not the image/controls) to close
+  lb.addEventListener("click", (e) => { if (e.target === lb || e.target === stage) closeFig(); });
+})();
+
 document.getElementById("po-close").addEventListener("click", closePdfOverlay);
 document.getElementById("fig-close").addEventListener("click", closeFig);
-document.getElementById("fig-lightbox").addEventListener("click", e => { if (e.target.id === "fig-lightbox") closeFig(); });
+// click the dimmed backdrop (outside the dialog) to close the PDF preview
+document.getElementById("pdf-overlay").addEventListener("click", e => { if (e.target.id === "pdf-overlay") closePdfOverlay(); });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (document.getElementById("fig-lightbox").classList.contains("open")) closeFig();
