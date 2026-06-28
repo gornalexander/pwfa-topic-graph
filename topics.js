@@ -48,10 +48,6 @@ const topics = [
       {
         "id": "electron_accel",
         "type": "enables"
-      },
-      {
-        "id": "beam_quality",
-        "type": "related"
       }
     ]
   },
@@ -141,7 +137,16 @@ const topics = [
       "PRAB.20.101301"
     ],
     "openQuestions": "Achieving %-level energy spread and μm-level emittance simultaneously at GeV energies is not yet demonstrated.",
-    "sources": []
+    "sources": [
+      {
+        "id": "pwfa",
+        "type": "related"
+      },
+      {
+        "id": "laser_wakefield",
+        "type": "related"
+      }
+    ]
   },
   {
     "id": "wavebreaking",
@@ -575,10 +580,6 @@ const topics = [
     "sources": [
       {
         "id": "electron_accel",
-        "type": "related"
-      },
-      {
-        "id": "beam_quality",
         "type": "related"
       }
     ]
