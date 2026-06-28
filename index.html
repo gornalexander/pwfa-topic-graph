@@ -205,6 +205,9 @@
 
   /* Detailed article view (rendered inside the side panel, which widens) */
   #info-panel.detailed { width: 620px; }
+  /* Closed-but-still-detailed: slide the full 620px width off-screen so the text
+     leaves with the panel (no shrink before it goes). */
+  #info-panel.detailed:not(.open) { right: -680px; }
   /* Lay the content out at the FINAL width while the panel widens, so the text is
      revealed by the expanding panel instead of re-wrapping (no reflow). */
   #info-panel.detailed #panel-scroll { width: 620px; }
@@ -1132,7 +1135,10 @@ document.addEventListener("keydown", e => {
 
 function closePanel() {
   const panel = document.getElementById("info-panel");
-  panel.classList.remove("open", "detailed");
+  panel.classList.remove("open");
+  // Keep the detailed width during the slide-out so the text moves away with the
+  // panel instead of reflowing first; reset it once the panel is off-screen.
+  setTimeout(() => { if (!panel.classList.contains("open")) panel.classList.remove("detailed"); }, 380);
 }
 
 function navigateToNode(id) {
