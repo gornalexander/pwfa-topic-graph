@@ -1,5 +1,6 @@
 // Paper database for the PWFA research landscape graph.
 // Key format: Journal.Volume.PageOrArticleId. Fields: title, ref, authors, doi, arxiv, me.
+// Optional overrides: localPdf, abstract (string), keyResults (array) — set via inline editing.
 
 const papers = {
   "NaturePhys.5.363": {
