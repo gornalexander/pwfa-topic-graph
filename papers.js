@@ -35,7 +35,7 @@ const papers = {
     "me": "coauthor"
   },
   "Symmetry.14.1680": {
-    "title": "Proton Beam Driven Plasma Wakefield Acceleration",
+    "title": "The AWAKE Run 2 Programme and Beyond",
     "ref": "Gschwendtner et al., Symmetry 14, 1680 (2022)",
     "authors": "Gschwendtner, Gorn, AWAKE Collaboration",
     "doi": "10.3390/sym14081680",
@@ -99,7 +99,7 @@ const papers = {
     "me": "coauthor"
   },
   "PRL.125.264801": {
-    "title": "Proton Beam Self-Modulation Instability: Phase Reproducibility",
+    "title": "Proton Bunch Self-Modulation in Plasma with Density Gradient",
     "ref": "Braunmüller et al. (AWAKE), PRL 125, 264801 (2020)",
     "authors": "Braunmüller, Muggli, Lotov, Gorn, AWAKE Collaboration",
     "doi": "10.1103/PhysRevLett.125.264801",
@@ -126,8 +126,8 @@ const papers = {
     "title": "Optimum angle for side injection of electrons into linear plasma wakefields",
     "ref": "Lotov, J. Plasma Phys. 78, 455 (2012)",
     "authors": "Lotov",
-    "doi": "10.1017/S0022377812000189",
-    "arxiv": null,
+    "doi": "10.1017/S0022377812000335",
+    "arxiv": "1109.6081",
     "me": null
   },
   "IPAC2014.TUPME078": {
@@ -139,7 +139,7 @@ const papers = {
     "me": null
   },
   "PRAB.24.011301": {
-    "title": "Injection of a particle beam into a PWFA-driven plasma channel",
+    "title": "Experimental study of extended timescale dynamics of a plasma wakefield driven by a self-modulated proton bunch",
     "ref": "Chappell et al., PRAB 24, 011301 (2021)",
     "authors": "Chappell, Muggli, Gorn, AWAKE Collaboration",
     "doi": "10.1103/PhysRevAccelBeams.24.011301",
@@ -163,7 +163,7 @@ const papers = {
     "me": "first"
   },
   "PRL.122.054801": {
-    "title": "Experimental Observation of Proton Bunch Modulation in a Plasma at Varying Plasma Densities",
+    "title": "Experimental Observation of Plasma Wakefield Growth Driven by the Seeded Self-Modulation of a Proton Bunch",
     "ref": "Turner et al., PRL 122, 054801 (2019)",
     "authors": "Turner, Muggli, Lotov, Gorn, AWAKE Collaboration",
     "doi": "10.1103/PhysRevLett.122.054801",
@@ -179,7 +179,7 @@ const papers = {
     "me": "coauthor"
   },
   "JINST.16.P11031": {
-    "title": "First Measurement of the Coherent Transition Radiation at the AWAKE Experiment",
+    "title": "Analysis of proton bunch parameters in the AWAKE experiment",
     "ref": "Hafych et al., JINST 16, P11031 (2021)",
     "authors": "Hafych, Muggli, Gorn, AWAKE Collaboration",
     "doi": "10.1088/1748-0221/16/11/P11031",
@@ -190,16 +190,16 @@ const papers = {
     "title": "Numerical studies of electron acceleration behind self-modulating proton beam in plasma with a density gradient",
     "ref": "Petrenko, Lotov, Sosedkin, NIMA 829, 63 (2016)",
     "authors": "Petrenko, Lotov, Sosedkin",
-    "doi": "10.1016/j.nima.2016.01.053",
-    "arxiv": null,
+    "doi": "10.1016/j.nima.2016.01.063",
+    "arxiv": "1511.04360",
     "me": null
   },
   "PoP.20.013102": {
     "title": "Effect of plasma inhomogeneity on plasma wakefield acceleration driven by long bunches",
     "ref": "Lotov, Pukhov, Caldwell, Phys. Plasmas 20, 013102 (2013)",
     "authors": "Lotov, Pukhov, Caldwell",
-    "doi": "10.1063/1.4773444",
-    "arxiv": null,
+    "doi": "10.1063/1.4773905",
+    "arxiv": "1205.3388",
     "me": null
   },
   "PRL.107.145003": {
@@ -222,7 +222,7 @@ const papers = {
     "title": "Radial equilibrium of relativistic particle bunches in plasma wakefield accelerators",
     "ref": "Lotov, Phys. Plasmas 24, 023119 (2017)",
     "authors": "Lotov",
-    "doi": "10.1063/1.4975076",
+    "doi": "10.1063/1.4977058",
     "arxiv": "1611.00870",
     "me": null
   },
@@ -254,8 +254,8 @@ const papers = {
     "title": "Stable bunch trains for plasma wakefield acceleration",
     "ref": "Lotov, PPCF 60, 024002 (2018)",
     "authors": "Lotov",
-    "doi": "10.1088/1361-6587/aa8f15",
-    "arxiv": null,
+    "doi": "10.1088/1361-6587/aa9f97",
+    "arxiv": "1711.07633",
     "me": null
   },
   "PoP.20.083108": {
@@ -263,7 +263,7 @@ const papers = {
     "ref": "Lotov, Phys. Plasmas 20, 083108 (2013)",
     "authors": "Lotov",
     "doi": "10.1063/1.4819720",
-    "arxiv": null,
+    "arxiv": "1307.3812",
     "me": null
   },
   "PRSTAB.16.041301": {
@@ -278,7 +278,7 @@ const papers = {
     "title": "Generation of controllable plasma wakefield noise in particle-in-cell simulations",
     "ref": "Moschüring et al., Phys. Plasmas 24, 103129 (2017)",
     "authors": "Moschüring, Ruhl, Spitsyn, Lotov",
-    "doi": "10.1063/1.5006408",
+    "doi": "10.1063/1.4986399",
     "arxiv": "1706.00594",
     "me": null
   },
@@ -286,8 +286,8 @@ const papers = {
     "title": "Multi-proton bunch driven hollow plasma wakefield acceleration in the nonlinear regime",
     "ref": "Li et al., Phys. Plasmas 24, 103114 (2017)",
     "authors": "Li, Xia, Lotov, Sosedkin, Hanahoe, Mete-Apsimon",
-    "doi": "10.1063/1.5001842",
-    "arxiv": null,
+    "doi": "10.1063/1.4995354",
+    "arxiv": "1707.03193",
     "me": null
   },
   "PoP.21.083107": {
