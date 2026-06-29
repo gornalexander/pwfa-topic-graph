@@ -438,6 +438,24 @@
       return true;
     },
     isEditing: () => state.editing,
+    // True when a verified, allowed user is logged in (inline-edit rights).
+    canEdit: () => !!state.user,
+    // Inline edit of a single field; mutates in memory and commits the changed file.
+    setField: async (type, id, field, value) => {
+      if (!state.user || !state.token) { flash("Log in to edit"); return false; }
+      pushUndo();
+      if (type === "topic") { const t = api.topics.find(x => x.id === id); if (!t) return false; t[field] = value; }
+      else if (type === "paper") { if (!api.papers[id]) return false; api.papers[id][field] = value; }
+      else return false;
+      flash("Saving…");
+      try {
+        const f = type === "paper" ? "papers.js" : "topics.js";
+        const content = type === "paper" ? serializePapers() : serializeTopics();
+        await commitFile(f, content, `Editor: edit ${id} ${field}`);
+        flash("Saved ✓ — live after Pages rebuild (~1 min)");
+        return true;
+      } catch (e) { flash("Save failed: " + (e.message || e)); return false; }
+    },
     _forceEnable: (token) => { state.user = CONFIG.allowedUser; state.token = token || "test"; updateAccountUI(); enterEdit(); },
   };
 
