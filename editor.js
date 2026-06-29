@@ -44,6 +44,13 @@
     #edit-fab svg { width: 17px; height: 17px; }
     #edit-fab:hover { color: #fff; border-color: rgba(96,165,250,0.5); }
     #edit-fab.on { background: rgba(96,165,250,0.25); color: #fff; }
+    #save-fab { width: 38px; height: 38px; padding: 0; display: none; align-items: center;
+      justify-content: center; border-radius: 10px; border: 1px solid rgba(52,211,153,0.5);
+      background: rgba(52,211,153,0.22); color: #6ee7b7; cursor: pointer; backdrop-filter: blur(12px); }
+    #save-fab.dirty { display: flex; }
+    #save-fab svg { width: 17px; height: 17px; }
+    #save-fab:hover { background: rgba(52,211,153,0.4); color: #fff; }
+    #save-fab.saving { opacity: 0.6; cursor: default; }
     #edit-toolbar { position: fixed; top: 116px; left: 24px; z-index: 160;
       display: none; flex-direction: column; gap: 6px; width: 180px;
       background: rgba(15,20,35,0.95); border: 1px solid rgba(100,116,139,0.25);
@@ -119,8 +126,12 @@
   const account = el("button", { id: "account-btn" });
   const accountMenu = el("div", { id: "account-menu" });
   accountMenu.innerHTML = `<button data-act="logout">Log out</button>`;
+  const saveFab = el("button", { id: "save-fab", title: "Save changes to GitHub" });
+  saveFab.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+    <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
   const bar = el("div", { id: "editor-bar" });
-  bar.append(account, fab);
+  bar.append(account, fab, saveFab);
   const toolbar = el("div", { id: "edit-toolbar" });
   const form = el("div", { id: "edit-form" });
   const statusEl = el("div", { id: "edit-status" });
@@ -137,10 +148,10 @@
       <button class="et-btn" data-act="undo">Undo</button>
       <button class="et-btn" data-act="redo">Redo</button>
     </div>
-    <button class="et-btn primary" data-act="save">Save to GitHub</button>
     <button class="et-btn" data-act="exit">Exit edit mode</button>
     <div class="et-hint">Click a bubble to edit. Click a link to delete it.
-      Drag bubble→bubble to link. ⌘Z/⌘⇧Z undo/redo, ⌘C/⌘V copy/paste.</div>
+      Drag bubble→bubble to link. ⌘Z/⌘⇧Z undo/redo, ⌘C/⌘V copy/paste.
+      Unsaved changes show a green Save button (top-left).</div>
   `;
 
   function el(tag, props) { return Object.assign(document.createElement(tag), props || {}); }
@@ -312,6 +323,12 @@
     return best;
   }
 
+  // ---------- unsaved-changes state ----------
+  function markDirty() { state.dirty = true; saveFab.classList.add("dirty"); }
+  function clearDirty() { state.dirty = false; saveFab.classList.remove("dirty"); }
+  saveFab.addEventListener("click", () => { if (state.dirty && !saveFab.classList.contains("saving")) save(); });
+  window.addEventListener("beforeunload", (e) => { if (state.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
   // ---------- mutations (each snapshots for undo) ----------
   function snapshot() {
     return JSON.stringify({ topics: api.topics, papers: api.papers });
@@ -320,6 +337,7 @@
     state.undo.push(snapshot());
     if (state.undo.length > 100) state.undo.shift();
     state.redo.length = 0;
+    markDirty();   // any change enables the green Save button
   }
   function applySnapshot(snap) {
     const obj = JSON.parse(snap);
@@ -334,12 +352,14 @@
     if (!state.undo.length) return flash("Nothing to undo");
     state.redo.push(snapshot());
     applySnapshot(state.undo.pop());
+    markDirty();
     flash("Undo");
   }
   function redo() {
     if (!state.redo.length) return flash("Nothing to redo");
     state.undo.push(snapshot());
     applySnapshot(state.redo.pop());
+    markDirty();
     flash("Redo");
   }
 
@@ -440,21 +460,14 @@
     isEditing: () => state.editing,
     // True when a verified, allowed user is logged in (inline-edit rights).
     canEdit: () => !!state.user,
-    // Inline edit of a single field; mutates in memory and commits the changed file.
+    // Inline edit of a single field; mutates in memory and marks unsaved.
     setField: async (type, id, field, value) => {
-      if (!state.user || !state.token) { flash("Log in to edit"); return false; }
+      if (!state.user) { flash("Log in to edit"); return false; }
       pushUndo();
       if (type === "topic") { const t = api.topics.find(x => x.id === id); if (!t) return false; t[field] = value; }
       else if (type === "paper") { if (!api.papers[id]) return false; api.papers[id][field] = value; }
       else return false;
-      flash("Saving…");
-      try {
-        const f = type === "paper" ? "papers.js" : "topics.js";
-        const content = type === "paper" ? serializePapers() : serializeTopics();
-        await commitFile(f, content, `Editor: edit ${id} ${field}`);
-        flash("Saved ✓ — live after Pages rebuild (~1 min)");
-        return true;
-      } catch (e) { flash("Save failed: " + (e.message || e)); return false; }
+      return true;
     },
     // Add a paper (fetched from a link) to a topic's publication list.
     addPaperByLink: async (topicId, link) => {
@@ -474,21 +487,15 @@
         if (!api.papers[paper.id]) { const { id: _id, ...rest } = paper; api.papers[paper.id] = rest; }
         t.paperIds = t.paperIds || [];
         if (!t.paperIds.includes(paper.id)) t.paperIds.push(paper.id);
-        flash("Saving…");
-        await commitFile("papers.js", serializePapers(), `Editor: add paper ${paper.id} to ${topicId}`);
-        await commitFile("topics.js", serializeTopics(), `Editor: add paper ${paper.id} to ${topicId}`);
-        flash("Saved ✓ — live after Pages rebuild (~1 min)");
         return { ok: true, key: paper.id, paper };
       } catch (e) { flash("Add paper failed: " + (e.message || e)); return { ok: false, error: e.message || String(e) }; }
     },
     removePaperFromTopic: async (topicId, paperKey) => {
-      if (!state.user || !state.token) { flash("Log in to edit"); return false; }
+      if (!state.user) { flash("Log in to edit"); return false; }
       const t = api.topics.find(x => x.id === topicId); if (!t) return false;
       pushUndo();
       t.paperIds = (t.paperIds || []).filter(k => k !== paperKey);
-      flash("Saving…");
-      try { await commitFile("topics.js", serializeTopics(), `Editor: remove paper ${paperKey} from ${topicId}`); flash("Saved ✓"); return true; }
-      catch (e) { flash("Save failed: " + (e.message || e)); return false; }
+      return true;
     },
     _forceEnable: (token) => { state.user = CONFIG.allowedUser; state.token = token || "test"; updateAccountUI(); enterEdit(); },
   };
@@ -736,15 +743,19 @@
 
   async function save() {
     if (!state.token) return flash("Not logged in");
+    saveFab.classList.add("saving");
     showDeploy("Committing to GitHub…", { spinner: true });
     const topicsContent = serializeTopics();
     try {
       await commitFile("papers.js", serializePapers(), "Editor: update papers.js");
       await commitFile("topics.js", topicsContent, "Editor: update topics.js");
     } catch (e) {
+      saveFab.classList.remove("saving");
       showDeploy("Save failed: " + esc(e.message), { error: true, done: true });
       return;
     }
+    saveFab.classList.remove("saving");
+    clearDirty();
     // Off the live site (e.g. local file) there's no Pages deploy to watch.
     if (!location.hostname.endsWith("github.io") && !window.__pwfaForceDeploy) {
       showDeploy("Committed to GitHub ✓ — changes will appear on the live site after Pages rebuilds.", { done: true });
