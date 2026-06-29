@@ -1357,11 +1357,11 @@ async function openDetailed(p) {
   if (p.doi) actions.appendChild(link("https://doi.org/" + p.doi, "DOI ↗"));
   if (p.arxiv) actions.appendChild(link("https://arxiv.org/abs/" + p.arxiv, "arXiv ↗"));
   if (p.arxiv && base) {
-    const b = el("button", "preview-btn-lg", "◳ Preview PDF");
+    const b = el("button", "preview-btn-lg", "◳ Preview");
     b.addEventListener("click", () => openPdfOverlay(p.arxiv));
     actions.appendChild(b);
   } else if (p.localPdf && p.key && base && loggedIn()) {
-    const b = el("button", "preview-btn-lg", "◳ Preview PDF");
+    const b = el("button", "preview-btn-lg", "◳ Preview");
     b.addEventListener("click", () => openLocalPdfOverlay(p.key, p.title));
     actions.appendChild(b);
   }
