@@ -81,7 +81,8 @@ const papers = {
     "authors": "Lotov",
     "doi": "10.1063/1.3558697",
     "arxiv": null,
-    "me": null
+    "me": null,
+    "localPdf": true
   },
   "PRL.126.164802": {
     "title": "Transition between Instability and Seeded Self-Modulation of a Relativistic Particle Bunch in Plasma",
