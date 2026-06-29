@@ -383,6 +383,7 @@
     line-height: 1.6;
     color: #fca5a5;
   }
+  .open-questions.empty { display: none; }   /* no red frame when there's nothing */
 
   /* Filter buttons */
   #filters {
@@ -1009,6 +1010,9 @@ let panelNode = null;   // the topic currently shown, so the detailed view can g
 const PENCIL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
 function canEdit() { return !!(window.editor && window.editor.canEdit && window.editor.canEdit()); }
 function pencilHtml() { return canEdit() ? `<button class="field-edit" title="Edit">${PENCIL_SVG}</button>` : ""; }
+function headerPencilHtml(type, id, field) {
+  return canEdit() ? `<button class="field-edit hdr" data-type="${type}" data-id="${id}" data-field="${field}" title="Edit">${PENCIL_SVG}</button>` : "";
+}
 function getRawField(type, id, field) {
   if (type === "topic") { const t = graphApi.topics.find(x => x.id === id); return t ? t[field] : ""; }
   if (type === "paper") { const p = graphApi.papers[id]; return p ? p[field] : ""; }
@@ -1035,6 +1039,11 @@ function attachFieldEditors(container) {
     const btn = w.querySelector(":scope > .field-edit");
     const disp = w.querySelector(":scope > .ef-content");
     if (btn && disp) btn.addEventListener("click", () => startFieldEdit(disp, btn, w.dataset.type, w.dataset.id, w.dataset.field));
+  });
+  // Header pencils (e.g. Open Questions): edit the .ef-content right after the <h3>.
+  container.querySelectorAll("h3 > .field-edit.hdr").forEach(btn => {
+    const content = btn.parentElement.nextElementSibling;
+    if (content) btn.addEventListener("click", () => startFieldEdit(content, btn, btn.dataset.type, btn.dataset.id, btn.dataset.field));
   });
 }
 // Build an <h3> heading with an inline edit pencil that edits `displayEl`.
@@ -1094,6 +1103,7 @@ function applyFieldRerender(type, id, field, val, displayEl) {
     }
     if (panelNode) panelNode[field] = val;
     displayEl.innerHTML = renderMD(val);
+    if (field === "openQuestions") displayEl.classList.toggle("empty", !String(val).trim());
   } else if (type === "paper") {
     if (field === "title") displayEl.innerHTML = renderMDInline(val);
     else if (field === "abstract") { displayEl.innerHTML = renderMD(val); displayEl.dataset.raw = val; }
@@ -1138,7 +1148,9 @@ function showPanel(d) {
   `;
 
   if (d.openQuestions || canEdit()) {
-    html += `<h3>Open Questions</h3><div class="editable-field" data-type="topic" data-id="${d.id}" data-field="openQuestions"><div class="ef-content open-questions md">${renderMD(d.openQuestions || "")}</div>${pencilHtml()}</div>`;
+    const oqEmpty = !d.openQuestions;
+    html += `<h3>Open Questions${headerPencilHtml("topic", d.id, "openQuestions")}</h3>`
+      + `<div class="open-questions md ef-content${oqEmpty ? " empty" : ""}">${renderMD(d.openQuestions || "")}</div>`;
   }
 
   if (d.papers.length > 0) {
