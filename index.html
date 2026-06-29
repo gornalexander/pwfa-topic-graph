@@ -314,14 +314,16 @@
   .detail-authors { color: #cbd5e1; font-size: 12.5px; margin-bottom: 2px; }
   .detail-ref { color: #94a3b8; font-size: 12px; font-style: italic; margin-bottom: 14px; }
   .detail-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .detail-actions a, .detail-actions .preview-btn-lg {
+    display: inline-flex; align-items: center; height: 26px; padding: 0 11px; box-sizing: border-box;
+    font: 600 11px Inter; line-height: 1; border-radius: 5px; border: 1px solid transparent;
+  }
   .detail-actions a {
-    font: 600 11px Inter; padding: 4px 11px; border-radius: 5px; text-decoration: none;
-    color: #93c5fd; background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.28);
+    text-decoration: none; color: #93c5fd; background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.28);
   }
   .detail-actions a:hover { background: rgba(96,165,250,0.25); }
   .preview-btn-lg {
-    font: 600 11px Inter; padding: 4px 12px; border-radius: 5px; cursor: pointer;
-    color: #c4b5fd; background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35);
+    cursor: pointer; color: #c4b5fd; background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.35);
   }
   .preview-btn-lg:hover { background: rgba(167,139,250,0.3); }
   .detail-abstract { margin: 0; font-size: 13.5px; line-height: 1.6; color: #d1d5db; }
