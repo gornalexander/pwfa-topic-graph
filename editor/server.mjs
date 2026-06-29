@@ -360,11 +360,39 @@ List the 3 to 6 most important KEY RESULTS / findings of this paper as concise, 
   }
 }
 
+// --- Local PDF store (publisher PDFs) — login-gated to the owner (copyright). ---
+const LOCAL_DIR = `${PAPERS_DIR}/local`;
+async function serveLocalPdf(rawKey, authHeader, reqOrigin, res) {
+  const cors = {
+    "Access-Control-Allow-Origin": reqOrigin || "*",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Vary": "Origin",
+  };
+  const key = decodeURIComponent(rawKey).replace(/\.pdf$/i, "").trim();
+  if (!/^[A-Za-z0-9._-]+$/.test(key)) { res.writeHead(400, cors); return res.end("bad key"); }
+  const token = (authHeader || "").replace(/^Bearer\s+/i, "");
+  const v = await verifyAllowedUser(token, env);
+  if (!v.ok) { res.writeHead(403, { ...cors, "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "login required" })); }
+  const file = `${LOCAL_DIR}/${key}.pdf`;
+  try { await fsp.access(file); } catch { res.writeHead(404, cors); return res.end("not found"); }
+  res.writeHead(200, { ...cors, "Content-Type": "application/pdf", "Content-Disposition": "inline", "Cache-Control": "private, max-age=3600" });
+  fs.createReadStream(file).pipe(res);
+}
+
 http.createServer(async (req, res) => {
   try {
     const origin = env.PUBLIC_ORIGIN || `http://${req.headers.host}`;
     const url = origin.replace(/\/$/, "") + req.url;
     const pubCors = { "Access-Control-Allow-Origin": "*" };
+
+    // Login-gated local publisher PDFs (CORS preflight + GET).
+    if (req.url.startsWith("/pdf/local/")) {
+      if (req.method === "OPTIONS") {
+        res.writeHead(204, { "Access-Control-Allow-Origin": req.headers.origin || "*", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, OPTIONS", "Vary": "Origin" });
+        return res.end();
+      }
+      if (req.method === "GET") return serveLocalPdf(req.url.slice("/pdf/local/".length), req.headers.authorization, req.headers.origin, res);
+    }
 
     // Public arXiv PDF proxy — handled directly (streams a file).
     if (req.method === "GET" && req.url.startsWith("/pdf/arxiv/")) {

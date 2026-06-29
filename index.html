@@ -628,7 +628,7 @@ function deriveData() {
       rank: r,
       type: r <= 1 ? "category" : "topic",
       size: nodeSize(r, childCount[t.id]),
-      papers: (t.paperIds || []).map(id => papers[id]).filter(Boolean),
+      papers: (t.paperIds || []).map(id => papers[id] && { ...papers[id], _key: id }).filter(Boolean),
     };
     const old = prev.get(t.id);
     if (old) {
@@ -1016,13 +1016,15 @@ function showPanel(d) {
   if (d.papers.length > 0) {
     html += `<h3>Key Publications</h3>`;
     d.papers.forEach(p => {
+      const hasLocal = p.localPdf && loggedIn();
       let links = '<div class="paper-links">';
       if (p.doi) links += `<a class="doi-link" href="https://doi.org/${p.doi}" target="_blank" rel="noopener">DOI</a>`;
       if (p.arxiv) links += `<a class="arxiv-link" href="https://arxiv.org/abs/${p.arxiv}" target="_blank" rel="noopener">arXiv</a>`;
       if (p.arxiv) links += `<button class="preview-btn" data-preview="${p.arxiv}">Preview</button>`;
+      else if (hasLocal) links += `<button class="preview-btn" data-preview-local="${p._key}">Preview</button>`;
       links += '</div>';
       const ea = s => String(s || "").replace(/"/g, "&quot;");
-      html += `<div class="paper-item paper-card" data-arxiv="${ea(p.arxiv)}" data-doi="${ea(p.doi)}" data-title="${ea(p.title)}" data-ref="${ea(p.ref)}">`
+      html += `<div class="paper-item paper-card" data-key="${ea(p._key)}" data-localpdf="${p.localPdf ? 1 : ""}" data-arxiv="${ea(p.arxiv)}" data-doi="${ea(p.doi)}" data-title="${ea(p.title)}" data-ref="${ea(p.ref)}">`
         + `<div class="paper-title">${p.title}</div><div class="paper-ref">${p.ref}</div>${links}</div>`;
     });
   }
@@ -1060,8 +1062,13 @@ function showPanel(d) {
     el.addEventListener("click", (e) => {
       if (e.target.closest("a")) return; // let DOI/arXiv links open normally
       const btn = e.target.closest(".preview-btn");
-      if (btn) { e.stopPropagation(); openPdfOverlay(btn.dataset.preview); return; }
-      openDetailed({ arxiv: el.dataset.arxiv, doi: el.dataset.doi, title: el.dataset.title, ref: el.dataset.ref });
+      if (btn) {
+        e.stopPropagation();
+        if (btn.dataset.previewLocal) openLocalPdfOverlay(btn.dataset.previewLocal, el.dataset.title);
+        else openPdfOverlay(btn.dataset.preview);
+        return;
+      }
+      openDetailed({ arxiv: el.dataset.arxiv, doi: el.dataset.doi, title: el.dataset.title, ref: el.dataset.ref, key: el.dataset.key, localPdf: !!el.dataset.localpdf });
     });
   });
   panel.classList.add("open");
@@ -1070,6 +1077,8 @@ function showPanel(d) {
 function apiBase() {
   return (typeof CONFIG !== "undefined" && CONFIG.workerUrl) ? CONFIG.workerUrl.replace(/\/$/, "") : "";
 }
+function loggedIn() { try { return !!localStorage.getItem("pwfa_gh_token"); } catch (e) { return false; } }
+function authToken() { try { return localStorage.getItem("pwfa_gh_token"); } catch (e) { return null; } }
 
 // Detailed article view rendered INTO the side panel (Back returns to the topic).
 async function openDetailed(p) {
@@ -1099,6 +1108,10 @@ async function openDetailed(p) {
   if (p.arxiv && base) {
     const b = el("button", "preview-btn-lg", "◳ Preview PDF");
     b.addEventListener("click", () => openPdfOverlay(p.arxiv));
+    actions.appendChild(b);
+  } else if (p.localPdf && p.key && base && loggedIn()) {
+    const b = el("button", "preview-btn-lg", "◳ Preview PDF");
+    b.addEventListener("click", () => openLocalPdfOverlay(p.key, p.title));
     actions.appendChild(b);
   }
   content.appendChild(actions);
@@ -1182,9 +1195,31 @@ function openPdfOverlay(arxivId) {
   document.getElementById("po-frame").src = base + "/pdf/arxiv/" + encodeURIComponent(arxivId);
   document.getElementById("pdf-overlay").classList.add("open");
 }
+// Login-gated local (publisher) PDF — fetched with the GitHub token, shown as a blob.
+let localBlobUrl = null;
+async function openLocalPdfOverlay(key, title) {
+  const base = apiBase(), tok = authToken();
+  if (!base || !tok) { alert("Log in to view this paper's PDF."); return; }
+  document.getElementById("po-title").textContent = title || key;
+  document.getElementById("po-open").style.display = "none";
+  document.getElementById("po-frame").src = "about:blank";
+  document.getElementById("pdf-overlay").classList.add("open");
+  try {
+    const r = await fetch(base + "/pdf/local/" + encodeURIComponent(key), { headers: { Authorization: "Bearer " + tok } });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const blob = await r.blob();
+    if (localBlobUrl) URL.revokeObjectURL(localBlobUrl);
+    localBlobUrl = URL.createObjectURL(blob);
+    document.getElementById("po-frame").src = localBlobUrl;
+  } catch (e) {
+    document.getElementById("po-title").textContent = "Could not load PDF (" + e.message + ")";
+  }
+}
 function closePdfOverlay() {
   document.getElementById("pdf-overlay").classList.remove("open");
   document.getElementById("po-frame").src = "about:blank";
+  document.getElementById("po-open").style.display = "";
+  if (localBlobUrl) { URL.revokeObjectURL(localBlobUrl); localBlobUrl = null; }
 }
 // --- Figure lightbox with zoom + pan ---
 const figState = { scale: 1, tx: 0, ty: 0, drag: null };

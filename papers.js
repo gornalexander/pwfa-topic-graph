@@ -56,7 +56,8 @@ const papers = {
     "authors": "Lotov",
     "doi": "10.1103/PhysRevSTAB.13.041301",
     "arxiv": null,
-    "me": null
+    "me": null,
+    "localPdf": true
   },
   "PRL.104.255003": {
     "title": "Self-modulation instability of a long proton bunch in plasmas",
@@ -136,7 +137,8 @@ const papers = {
     "authors": "Petrenko, Bracco, Gschwendtner, Lotov, Muggli",
     "doi": "10.18429/JACoW-IPAC2014-TUPME078",
     "arxiv": null,
-    "me": null
+    "me": null,
+    "localPdf": true
   },
   "PRAB.24.011301": {
     "title": "Experimental study of extended timescale dynamics of a plasma wakefield driven by a self-modulated proton bunch",
@@ -304,7 +306,8 @@ const papers = {
     "authors": "Tajima, Dawson",
     "doi": "10.1103/PhysRevLett.43.267",
     "arxiv": null,
-    "me": null
+    "me": null,
+    "localPdf": true
   },
   "arXiv.2401.11924": {
     "title": "LCODE: Quasistatic code for simulating long-term evolution of three-dimensional plasma wakefields",
