@@ -648,7 +648,8 @@
   // ---------- save / commit ----------
   function serializePapers() {
     return `// Paper database for the PWFA research landscape graph.\n` +
-      `// Key format: Journal.Volume.PageOrArticleId. Fields: title, ref, authors, doi, arxiv, me.\n\n` +
+      `// Key format: Journal.Volume.PageOrArticleId. Fields: title, ref, authors, doi, arxiv, me.\n` +
+      `// Optional overrides: localPdf, abstract (string), keyResults (array) — set via inline editing.\n\n` +
       `const papers = ${JSON.stringify(api.papers, null, 2)};\n`;
   }
   function serializeTopics() {

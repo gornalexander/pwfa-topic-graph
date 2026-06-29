@@ -1031,7 +1031,11 @@ function attachFieldEditors(container) {
 }
 function startFieldEdit(wrapper, displayEl, type, id, field) {
   if (wrapper.querySelector(".ef-edit")) return;
-  const raw = getRawField(type, id, field);
+  let raw = getRawField(type, id, field);
+  if (field === "keyResults" && Array.isArray(raw)) raw = raw.join("\n");
+  // Derived fields (abstract/keyResults) have no stored source yet — seed from
+  // the currently displayed (fetched/generated) value.
+  if (raw == null || raw === "") raw = displayEl.dataset.raw || "";
   const pencil = wrapper.querySelector(":scope > .field-edit");
   displayEl.style.display = "none";
   if (pencil) pencil.style.display = "none";
@@ -1051,10 +1055,12 @@ function startFieldEdit(wrapper, displayEl, type, id, field) {
   cancelBtn.addEventListener("click", cleanup);
   saveBtn.addEventListener("click", async () => {
     saveBtn.disabled = true; cancelBtn.disabled = true; saveBtn.textContent = "Saving…";
-    const ok = await window.editor.setField(type, id, field, ta.value);
+    // Key results are stored as an array (one bullet per line).
+    const value = field === "keyResults" ? ta.value.split("\n").map(s => s.trim()).filter(Boolean) : ta.value;
+    const ok = await window.editor.setField(type, id, field, value);
     if (!ok) { saveBtn.disabled = false; cancelBtn.disabled = false; saveBtn.textContent = "Save"; return; }
     cleanup();
-    applyFieldRerender(type, id, field, ta.value, displayEl);
+    applyFieldRerender(type, id, field, value, displayEl);
   });
 }
 function applyFieldRerender(type, id, field, val, displayEl) {
@@ -1069,6 +1075,8 @@ function applyFieldRerender(type, id, field, val, displayEl) {
     displayEl.innerHTML = renderMD(val);
   } else if (type === "paper") {
     if (field === "title") displayEl.innerHTML = renderMDInline(val);
+    else if (field === "abstract") { displayEl.innerHTML = renderMD(val); displayEl.dataset.raw = val; }
+    else if (field === "keyResults") { renderKeyResults(displayEl, { keyResults: val }); displayEl.dataset.raw = val.join("\n"); }
     else displayEl.textContent = val;
   }
 }
@@ -1217,27 +1225,37 @@ async function openDetailed(p) {
   }
   content.appendChild(actions);
 
+  // A stored override (in papers.js) takes precedence over fetched/AI content.
+  const paperObj = p.key ? graphApi.papers[p.key] : null;
+  const absOverride = paperObj && paperObj.abstract;
+  const krOverride = paperObj && Array.isArray(paperObj.keyResults) && paperObj.keyResults.length ? paperObj.keyResults : null;
+
   content.appendChild(el("h3", null, "Summary"));
-  const abs = el("div", "detail-abstract md", "Loading…"); content.appendChild(abs);
+  const abs = el("div", "detail-abstract md", "Loading…");
+  content.appendChild(p.key ? wrapEditable(abs, "paper", p.key, "abstract") : abs);
   content.appendChild(el("h3", null, "Key Results"));
-  const kr = el("div", "detail-keyresults", "Loading…"); content.appendChild(kr);
+  const kr = el("div", "detail-keyresults", "Loading…");
+  content.appendChild(p.key ? wrapEditable(kr, "paper", p.key, "keyResults") : kr);
   const figH = el("h3", null, "Figures"); figH.style.display = "none"; content.appendChild(figH);
   const figs = el("div", "detail-figures"); content.appendChild(figs);
 
-  if (!base) { abs.textContent = "Backend unavailable."; kr.textContent = "—"; return; }
+  if (absOverride) { abs.innerHTML = renderMD(absOverride); abs.dataset.raw = absOverride; }
+  if (krOverride) { renderKeyResults(kr, { keyResults: krOverride }); kr.dataset.raw = krOverride.join("\n"); }
+
+  if (!base) { if (!absOverride) abs.textContent = "Backend unavailable."; if (!krOverride) kr.textContent = "—"; return; }
 
   const apath = p.arxiv ? "/article/arxiv/" + encodeURIComponent(p.arxiv)
               : p.doi ? "/article/doi/" + encodeURIComponent(p.doi) : null;
   if (apath) {
     fetch(base + apath).then(r => r.json()).then(d => {
-      abs.innerHTML = renderMD(d.abstract || "No abstract available.");
+      if (!absOverride) { abs.innerHTML = renderMD(d.abstract || "No abstract available."); abs.dataset.raw = d.abstract || ""; }
       if (d.authors && d.authors.length) {
         const a = d.authors;
         authors.textContent = a.length > 10 ? a.slice(0, 8).join(", ") + " … +" + (a.length - 8) + " more" : a.join(", ");
       }
       if (d.figures && d.figures.length) renderFigures(d.figures, figH, figs);
-    }).catch(() => { abs.textContent = "Could not load article info."; });
-  } else { abs.textContent = "No abstract available."; }
+    }).catch(() => { if (!absOverride) abs.textContent = "Could not load article info."; });
+  } else if (!absOverride) { abs.textContent = "No abstract available."; }
 
   // Non-arXiv papers: figures are extracted from the stored PDF.
   if (!p.arxiv && p.localPdf && p.key) {
@@ -1248,10 +1266,12 @@ async function openDetailed(p) {
   // Key results work for every paper: arXiv from ar5iv text, others from the PDF.
   const krPath = p.arxiv ? "/article/keyresults/arxiv/" + encodeURIComponent(p.arxiv)
                : (p.localPdf && p.key) ? "/article/keyresults/local/" + encodeURIComponent(p.key) : null;
-  if (krPath) {
-    kr.textContent = "Generating key results — first time can take up to ~1 min…";
-    loadKeyResults(base, krPath, kr, 0);
-  } else { kr.textContent = "—"; }
+  if (!krOverride) {
+    if (krPath) {
+      kr.textContent = "Generating key results — first time can take up to ~1 min…";
+      loadKeyResults(base, krPath, kr, 0);
+    } else { kr.textContent = canEdit() ? "None yet — click ✎ to add." : "—"; }
+  }
 }
 
 function renderFigures(figures, figH, figs) {
@@ -1286,6 +1306,7 @@ function loadKeyResults(base, krPath, kr, attempt) {
 function renderKeyResults(kr, d) {
   kr.innerHTML = "";
   if (d.keyResults && d.keyResults.length) {
+    kr.dataset.raw = d.keyResults.join("\n");   // seed for inline editing
     const ul = document.createElement("ul"); ul.className = "kr-list md";
     d.keyResults.forEach(t => { const li = document.createElement("li"); li.innerHTML = renderMDInline(t); ul.appendChild(li); });
     kr.appendChild(ul);
