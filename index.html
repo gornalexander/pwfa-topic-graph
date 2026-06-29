@@ -160,6 +160,14 @@
   .editable-field:hover > .field-edit { opacity: 0.8; }
   .editable-field > .field-edit:hover { opacity: 1; color: #93c5fd; }
   .editable-field > .field-edit svg { width: 13px; height: 13px; display: block; }
+  /* pencil that lives inside a section header (Summary / Key Results) */
+  #info-panel h3 .field-edit.hdr {
+    background: none; border: none; color: #64748b; cursor: pointer; padding: 0 0 0 7px;
+    opacity: 0; transition: opacity 0.15s; vertical-align: middle;
+  }
+  #info-panel h3:hover .field-edit.hdr { opacity: 0.85; }
+  #info-panel h3 .field-edit.hdr:hover { opacity: 1; color: #93c5fd; }
+  #info-panel h3 .field-edit.hdr svg { width: 12px; height: 12px; display: inline-block; vertical-align: middle; }
   .ef-edit textarea {
     width: 100%; box-sizing: border-box; background: rgba(15,20,35,0.9);
     border: 1px solid rgba(96,165,250,0.5); border-radius: 8px; color: #e2e8f0;
@@ -1016,7 +1024,7 @@ function wrapEditable(displayEl, type, id, field) {
   if (canEdit()) {
     const btn = document.createElement("button");
     btn.className = "field-edit"; btn.title = "Edit"; btn.innerHTML = PENCIL_SVG;
-    btn.addEventListener("click", () => startFieldEdit(w, displayEl, type, id, field));
+    btn.addEventListener("click", () => startFieldEdit(displayEl, btn, type, id, field));
     w.appendChild(btn);
   }
   return w;
@@ -1026,19 +1034,32 @@ function attachFieldEditors(container) {
   container.querySelectorAll(".editable-field").forEach(w => {
     const btn = w.querySelector(":scope > .field-edit");
     const disp = w.querySelector(":scope > .ef-content");
-    if (btn && disp) btn.addEventListener("click", () => startFieldEdit(w, disp, w.dataset.type, w.dataset.id, w.dataset.field));
+    if (btn && disp) btn.addEventListener("click", () => startFieldEdit(disp, btn, w.dataset.type, w.dataset.id, w.dataset.field));
   });
 }
-function startFieldEdit(wrapper, displayEl, type, id, field) {
-  if (wrapper.querySelector(".ef-edit")) return;
+// Build an <h3> heading with an inline edit pencil that edits `displayEl`.
+function headerWithEdit(text, type, id, field, displayEl) {
+  const h = document.createElement("h3");
+  h.textContent = text;
+  if (canEdit() && id) {
+    const btn = document.createElement("button");
+    btn.className = "field-edit hdr"; btn.title = "Edit " + text.toLowerCase(); btn.innerHTML = PENCIL_SVG;
+    btn.addEventListener("click", () => startFieldEdit(displayEl, btn, type, id, field));
+    h.appendChild(btn);
+  }
+  return h;
+}
+// Inline-edit `displayEl`: hide it + the pencil, show a textarea right after it.
+function startFieldEdit(displayEl, pencilEl, type, id, field) {
+  if (displayEl._editing) return;
+  displayEl._editing = true;
   let raw = getRawField(type, id, field);
   if (field === "keyResults" && Array.isArray(raw)) raw = raw.join("\n");
   // Derived fields (abstract/keyResults) have no stored source yet — seed from
   // the currently displayed (fetched/generated) value.
   if (raw == null || raw === "") raw = displayEl.dataset.raw || "";
-  const pencil = wrapper.querySelector(":scope > .field-edit");
   displayEl.style.display = "none";
-  if (pencil) pencil.style.display = "none";
+  if (pencilEl) pencilEl.style.display = "none";
   const box = document.createElement("div");
   box.className = "ef-edit";
   const ta = document.createElement("textarea");
@@ -1049,9 +1070,9 @@ function startFieldEdit(wrapper, displayEl, type, id, field) {
   const cancelBtn = document.createElement("button"); cancelBtn.textContent = "Cancel";
   actions.append(saveBtn, cancelBtn);
   box.append(ta, actions);
-  wrapper.appendChild(box);
+  displayEl.insertAdjacentElement("afterend", box);
   ta.focus();
-  const cleanup = () => { box.remove(); displayEl.style.display = ""; if (pencil) pencil.style.display = ""; };
+  const cleanup = () => { box.remove(); displayEl.style.display = ""; if (pencilEl) pencilEl.style.display = ""; displayEl._editing = false; };
   cancelBtn.addEventListener("click", cleanup);
   saveBtn.addEventListener("click", async () => {
     saveBtn.disabled = true; cancelBtn.disabled = true; saveBtn.textContent = "Saving…";
@@ -1230,12 +1251,12 @@ async function openDetailed(p) {
   const absOverride = paperObj && paperObj.abstract;
   const krOverride = paperObj && Array.isArray(paperObj.keyResults) && paperObj.keyResults.length ? paperObj.keyResults : null;
 
-  content.appendChild(el("h3", null, "Summary"));
   const abs = el("div", "detail-abstract md", "Loading…");
-  content.appendChild(p.key ? wrapEditable(abs, "paper", p.key, "abstract") : abs);
-  content.appendChild(el("h3", null, "Key Results"));
+  content.appendChild(headerWithEdit("Summary", "paper", p.key, "abstract", abs));
+  content.appendChild(abs);
   const kr = el("div", "detail-keyresults", "Loading…");
-  content.appendChild(p.key ? wrapEditable(kr, "paper", p.key, "keyResults") : kr);
+  content.appendChild(headerWithEdit("Key Results", "paper", p.key, "keyResults", kr));
+  content.appendChild(kr);
   const figH = el("h3", null, "Figures"); figH.style.display = "none"; content.appendChild(figH);
   const figs = el("div", "detail-figures"); content.appendChild(figs);
 
