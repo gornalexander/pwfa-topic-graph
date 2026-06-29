@@ -251,7 +251,8 @@ const papers = {
     "authors": "Gorn, Lotov",
     "doi": "10.1063/5.0080675",
     "arxiv": null,
-    "me": "first"
+    "me": "first",
+    "localPdf": true
   },
   "PPCF.60.024002": {
     "title": "Stable bunch trains for plasma wakefield acceleration",
