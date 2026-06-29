@@ -13,7 +13,9 @@ const topics = [
     "description": "",
     "paperIds": [],
     "openQuestions": null,
-    "sources": []
+    "sources": [],
+    "x": 196,
+    "y": -126
   },
   {
     "id": "simulation",
@@ -28,7 +30,9 @@ const topics = [
       "PRSTAB.13.041301"
     ],
     "openQuestions": null,
-    "sources": []
+    "sources": [],
+    "x": -407,
+    "y": 0
   },
   {
     "id": "pwfa",
@@ -49,7 +53,9 @@ const topics = [
         "id": "electron_accel",
         "type": "related"
       }
-    ]
+    ],
+    "x": 110,
+    "y": 104
   },
   {
     "id": "awake",
@@ -71,7 +77,9 @@ const topics = [
         "id": "pwfa",
         "type": "contains"
       }
-    ]
+    ],
+    "x": 118,
+    "y": 348
   },
   {
     "id": "smi",
@@ -98,7 +106,9 @@ const topics = [
         "id": "awake",
         "type": "studies"
       }
-    ]
+    ],
+    "x": -119,
+    "y": 323
   },
   {
     "id": "electron_injection",
@@ -121,12 +131,14 @@ const topics = [
         "id": "smi",
         "type": "related"
       }
-    ]
+    ],
+    "x": -241,
+    "y": 430
   },
   {
     "id": "beam_quality",
     "label": "Accelerated\nBeam Quality",
-    "status": "partial",
+    "status": "unsolved",
     "tags": [
       "theory",
       "simulation"
@@ -146,7 +158,9 @@ const topics = [
         "id": "pwfa",
         "type": "related"
       }
-    ]
+    ],
+    "x": 300,
+    "y": 131
   },
   {
     "id": "wavebreaking",
@@ -167,7 +181,9 @@ const topics = [
         "id": "smi",
         "type": "related"
       }
-    ]
+    ],
+    "x": 1,
+    "y": 558
   },
   {
     "id": "hollow_plasma",
@@ -188,7 +204,9 @@ const topics = [
         "id": "electron_accel",
         "type": "related"
       }
-    ]
+    ],
+    "x": 28,
+    "y": -114
   },
   {
     "id": "bunch_trains",
@@ -208,7 +226,9 @@ const topics = [
         "id": "smi",
         "type": "alternative"
       }
-    ]
+    ],
+    "x": -258,
+    "y": 288
   },
   {
     "id": "density_gradient",
@@ -229,7 +249,9 @@ const topics = [
         "id": "awake",
         "type": "related"
       }
-    ]
+    ],
+    "x": 273,
+    "y": 399
   },
   {
     "id": "ssm",
@@ -254,7 +276,9 @@ const topics = [
         "id": "awake",
         "type": "demonstrates"
       }
-    ]
+    ],
+    "x": -104,
+    "y": 557
   },
   {
     "id": "defocusing",
@@ -276,7 +300,9 @@ const topics = [
         "id": "awake",
         "type": "measures"
       }
-    ]
+    ],
+    "x": 251,
+    "y": 499
   },
   {
     "id": "noise_seeding",
@@ -301,7 +327,9 @@ const topics = [
         "id": "ssm",
         "type": "overcomes"
       }
-    ]
+    ],
+    "x": -248,
+    "y": 519
   },
   {
     "id": "emittance",
@@ -321,7 +349,9 @@ const topics = [
         "id": "smi",
         "type": "affects"
       }
-    ]
+    ],
+    "x": -302,
+    "y": 365
   },
   {
     "id": "phase_velocity",
@@ -340,7 +370,9 @@ const topics = [
         "id": "smi",
         "type": "determines"
       }
-    ]
+    ],
+    "x": -79,
+    "y": 457
   },
   {
     "id": "radial_equilibrium",
@@ -359,7 +391,9 @@ const topics = [
         "id": "pwfa",
         "type": "related"
       }
-    ]
+    ],
+    "x": -42,
+    "y": 117
   },
   {
     "id": "narrow_plasma",
@@ -383,7 +417,9 @@ const topics = [
         "id": "awake",
         "type": "related"
       }
-    ]
+    ],
+    "x": 240,
+    "y": 261
   },
   {
     "id": "diagnostics",
@@ -407,7 +443,9 @@ const topics = [
         "id": "awake",
         "type": "uses"
       }
-    ]
+    ],
+    "x": 360,
+    "y": 551
   },
   {
     "id": "scalable_source",
@@ -426,7 +464,9 @@ const topics = [
         "id": "awake",
         "type": "plans"
       }
-    ]
+    ],
+    "x": 148,
+    "y": 526
   },
   {
     "id": "density_ramps",
@@ -446,7 +486,9 @@ const topics = [
         "id": "awake",
         "type": "affected_by"
       }
-    ]
+    ],
+    "x": 68,
+    "y": 487
   },
   {
     "id": "parameter_sensitivity",
@@ -466,7 +508,9 @@ const topics = [
         "id": "smi",
         "type": "related"
       }
-    ]
+    ],
+    "x": -165,
+    "y": 477
   },
   {
     "id": "phase_reproducibility",
@@ -485,7 +529,9 @@ const topics = [
         "id": "ssm",
         "type": "enables"
       }
-    ]
+    ],
+    "x": -162,
+    "y": 714
   },
   {
     "id": "two_screen",
@@ -504,7 +550,9 @@ const topics = [
         "id": "diagnostics",
         "type": "includes"
       }
-    ]
+    ],
+    "x": 350,
+    "y": 707
   },
   {
     "id": "electron_halo",
@@ -528,7 +576,9 @@ const topics = [
         "id": "narrow_plasma",
         "type": "related"
       }
-    ]
+    ],
+    "x": 166,
+    "y": 439
   },
   {
     "id": "wavebreaking_location",
@@ -547,7 +597,9 @@ const topics = [
         "id": "wavebreaking",
         "type": "open_question"
       }
-    ]
+    ],
+    "x": 7,
+    "y": 726
   },
   {
     "id": "em_conversion",
@@ -565,7 +617,9 @@ const topics = [
         "id": "diagnostics",
         "type": "open_question"
       }
-    ]
+    ],
+    "x": 439,
+    "y": 680
   },
   {
     "id": "laser_wakefield",
@@ -586,7 +640,9 @@ const topics = [
         "id": "electron_accel",
         "type": "related"
       }
-    ]
+    ],
+    "x": 363,
+    "y": -21
   },
   {
     "id": "lcode",
@@ -606,7 +662,9 @@ const topics = [
         "id": "quasistatic_approx",
         "type": "related"
       }
-    ]
+    ],
+    "x": -568,
+    "y": 240
   },
   {
     "id": "quasistatic_approx",
@@ -623,6 +681,8 @@ const topics = [
         "id": "simulation",
         "type": "related"
       }
-    ]
+    ],
+    "x": -546,
+    "y": 85
   }
 ];
