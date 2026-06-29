@@ -741,13 +741,51 @@
     deployEl.querySelector("#ds-close").onclick = () => deployEl.classList.remove("show");
   }
 
-  async function save() {
-    if (!state.token) return flash("Not logged in");
-    saveFab.classList.add("saving");
-    showDeploy("Committing to GitHub…", { spinner: true });
-    const topicsContent = serializeTopics();
+  const isLive = location.hostname.endsWith("github.io");
+
+  // Local-first save: write the files via the local helper (node editor/localsave.mjs),
+  // which also git-commits and pushes. Returns true if it handled the save.
+  async function localSave(topicsContent, papersContent) {
     try {
-      await commitFile("papers.js", serializePapers(), "Editor: update papers.js");
+      const r = await fetch("http://localhost:8788/save", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topics: topicsContent, papers: papersContent }),
+      });
+      const out = await r.json();
+      if (!out.ok) throw new Error(out.error || "local save failed");
+      saveFab.classList.remove("saving");
+      clearDirty();
+      showDeploy(
+        out.pushed
+          ? "Saved to your local files and pushed ✓ — click <b>Reload now</b> to see them."
+          : "Saved to local files ✓ (push failed: " + esc(out.pushErr || "?") + "). Run git push manually.",
+        { done: true });
+      return true;
+    } catch (e) {
+      return false;   // helper not running / unreachable
+    }
+  }
+
+  async function save() {
+    saveFab.classList.add("saving");
+    showDeploy("Saving…", { spinner: true });
+    const topicsContent = serializeTopics();
+    const papersContent = serializePapers();
+
+    // On the local copy, save to disk first via the local helper.
+    if (!isLive) {
+      if (await localSave(topicsContent, papersContent)) return;
+      // Helper not running — fall back to committing to GitHub directly.
+      if (!state.token) {
+        saveFab.classList.remove("saving");
+        showDeploy("Local save server isn't running. Start it with <code>node editor/localsave.mjs</code>, or log in to commit to GitHub.", { error: true, done: true });
+        return;
+      }
+    }
+    if (!state.token) { saveFab.classList.remove("saving"); return flash("Not logged in"); }
+    showDeploy("Committing to GitHub…", { spinner: true });
+    try {
+      await commitFile("papers.js", papersContent, "Editor: update papers.js");
       await commitFile("topics.js", topicsContent, "Editor: update topics.js");
     } catch (e) {
       saveFab.classList.remove("saving");
