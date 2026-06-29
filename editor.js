@@ -456,6 +456,40 @@
         return true;
       } catch (e) { flash("Save failed: " + (e.message || e)); return false; }
     },
+    // Add a paper (fetched from a link) to a topic's publication list.
+    addPaperByLink: async (topicId, link) => {
+      if (!state.user || !state.token) { flash("Log in to edit"); return { ok: false, error: "not logged in" }; }
+      if (!CONFIG.workerUrl) return { ok: false, error: "backend not configured" };
+      const t = api.topics.find(x => x.id === topicId); if (!t) return { ok: false, error: "topic not found" };
+      try {
+        const r = await fetch(CONFIG.workerUrl + "/ai/draft", {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${state.token}` },
+          body: JSON.stringify({ link, existingTopicIds: api.topics.map(x => x.id), existingTags: [...new Set(api.topics.flatMap(x => x.tags || []))] }),
+        });
+        const out = await r.json();
+        if (!r.ok) throw new Error(out.error || "fetch failed");
+        const paper = out.draft && out.draft.paper;
+        if (!paper || !paper.id) throw new Error("no paper found at that link");
+        pushUndo();
+        if (!api.papers[paper.id]) { const { id: _id, ...rest } = paper; api.papers[paper.id] = rest; }
+        t.paperIds = t.paperIds || [];
+        if (!t.paperIds.includes(paper.id)) t.paperIds.push(paper.id);
+        flash("Saving…");
+        await commitFile("papers.js", serializePapers(), `Editor: add paper ${paper.id} to ${topicId}`);
+        await commitFile("topics.js", serializeTopics(), `Editor: add paper ${paper.id} to ${topicId}`);
+        flash("Saved ✓ — live after Pages rebuild (~1 min)");
+        return { ok: true, key: paper.id, paper };
+      } catch (e) { flash("Add paper failed: " + (e.message || e)); return { ok: false, error: e.message || String(e) }; }
+    },
+    removePaperFromTopic: async (topicId, paperKey) => {
+      if (!state.user || !state.token) { flash("Log in to edit"); return false; }
+      const t = api.topics.find(x => x.id === topicId); if (!t) return false;
+      pushUndo();
+      t.paperIds = (t.paperIds || []).filter(k => k !== paperKey);
+      flash("Saving…");
+      try { await commitFile("topics.js", serializeTopics(), `Editor: remove paper ${paperKey} from ${topicId}`); flash("Saved ✓"); return true; }
+      catch (e) { flash("Save failed: " + (e.message || e)); return false; }
+    },
     _forceEnable: (token) => { state.user = CONFIG.allowedUser; state.token = token || "test"; updateAccountUI(); enterEdit(); },
   };
 

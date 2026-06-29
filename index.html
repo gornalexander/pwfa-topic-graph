@@ -181,6 +181,27 @@
   .ef-edit button.primary { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.35); color: #6ee7b7; }
   .ef-edit button:hover { filter: brightness(1.25); }
   .ef-edit button:disabled { opacity: 0.6; cursor: default; }
+  /* tag + publication editors */
+  .tag-list { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tag-chip { display: inline-block; padding: 2px 8px; background: rgba(51,65,85,0.5); border-radius: 4px; font-size: 11px; color: #94a3b8; }
+  .ef-edit .te-row { display: flex; gap: 6px; margin-top: 8px; }
+  .ef-edit .te-input {
+    flex: 1; box-sizing: border-box; background: rgba(15,20,35,0.9); border: 1px solid rgba(96,165,250,0.5);
+    border-radius: 8px; color: #e2e8f0; font: 400 12px Inter; padding: 6px 9px; outline: none;
+  }
+  .ef-edit .te-chips, .ef-edit .te-sugg { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .ef-edit .te-sugg { margin-top: 8px; }
+  .te-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 4px 2px 9px; background: rgba(96,165,250,0.15); border: 1px solid rgba(96,165,250,0.3); border-radius: 6px; font-size: 11px; color: #cbd5e1; }
+  .te-chip button { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+  .te-chip button:hover { color: #f87171; }
+  .te-sugg-chip { padding: 2px 8px; background: rgba(51,65,85,0.4); border: 1px dashed rgba(100,116,139,0.45); border-radius: 6px; font-size: 11px; color: #94a3b8; cursor: pointer; }
+  .te-sugg-chip:hover { background: rgba(51,65,85,0.7); color: #e2e8f0; }
+  .te-label, .te-empty { font-size: 11px; color: #64748b; }
+  .pe-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; color: #cbd5e1; }
+  .pe-row button { background: none; border: 1px solid rgba(248,113,113,0.3); color: #f87171; border-radius: 5px; cursor: pointer; width: 20px; height: 20px; line-height: 1; flex: none; padding: 0; }
+  .pe-row button:hover { background: rgba(248,113,113,0.15); }
+  .pe-label { flex: 1; }
+  .pe-status { font-size: 11px; color: #64748b; margin-top: 6px; min-height: 14px; }
 
   /* Rendered-markdown content (descriptions, abstract, key results, etc.) */
   .md > :first-child { margin-top: 0; }
@@ -497,6 +518,7 @@
     text-decoration: none;
     border-left: 2px solid rgba(96,165,250,0.3);
     padding-left: 8px;
+    cursor: pointer;
   }
   .sr-paper:hover { color: #e2e8f0; border-left-color: rgba(96,165,250,0.7); }
   .sr-paper .sr-paper-ref { color: #64748b; }
@@ -560,9 +582,6 @@
 
 <div id="filters">
   <button class="filter-btn active" data-filter="all">All</button>
-  <button class="filter-btn" data-filter="theory">Theory</button>
-  <button class="filter-btn" data-filter="experiment">Experiment</button>
-  <button class="filter-btn" data-filter="simulation">Simulation</button>
   <button class="filter-btn" data-filter="unsolved">Open Problems</button>
   <button class="filter-btn" data-filter="my">My Papers</button>
   <div style="width:1px;height:20px;background:rgba(100,116,139,0.3);margin:0 4px"></div>
@@ -800,8 +819,8 @@ const simulation = d3.forceSimulation([]);
 // Link styling helpers
 // ============================================================
 
-function baseLinkStroke() { return "rgba(100,116,139,0.15)"; }
-function baseLinkWidth() { return 1.2; }
+function baseLinkStroke() { return "rgba(148,163,184,0.42)"; }
+function baseLinkWidth() { return 1.3; }
 
 // ============================================================
 // Render (re-run after edits). Persistent layers + keyed joins.
@@ -1013,6 +1032,9 @@ function pencilHtml() { return canEdit() ? `<button class="field-edit" title="Ed
 function headerPencilHtml(type, id, field) {
   return canEdit() ? `<button class="field-edit hdr" data-type="${type}" data-id="${id}" data-field="${field}" title="Edit">${PENCIL_SVG}</button>` : "";
 }
+function headerEditBtn(cls, id, title) {
+  return canEdit() ? `<button class="field-edit hdr ${cls}" data-id="${id}" title="${title}">${PENCIL_SVG}</button>` : "";
+}
 function getRawField(type, id, field) {
   if (type === "topic") { const t = graphApi.topics.find(x => x.id === id); return t ? t[field] : ""; }
   if (type === "paper") { const p = graphApi.papers[id]; return p ? p[field] : ""; }
@@ -1040,11 +1062,107 @@ function attachFieldEditors(container) {
     const disp = w.querySelector(":scope > .ef-content");
     if (btn && disp) btn.addEventListener("click", () => startFieldEdit(disp, btn, w.dataset.type, w.dataset.id, w.dataset.field));
   });
-  // Header pencils (e.g. Open Questions): edit the .ef-content right after the <h3>.
-  container.querySelectorAll("h3 > .field-edit.hdr").forEach(btn => {
+  // Header pencils for a simple field (e.g. Open Questions): edit the .ef-content after the <h3>.
+  container.querySelectorAll("h3 > .field-edit.hdr[data-field]").forEach(btn => {
     const content = btn.parentElement.nextElementSibling;
     if (content) btn.addEventListener("click", () => startFieldEdit(content, btn, btn.dataset.type, btn.dataset.id, btn.dataset.field));
   });
+  // Special header editors.
+  container.querySelectorAll("h3 > .pub-edit").forEach(btn => btn.addEventListener("click", () => openPublicationsEditor(btn.dataset.id, btn)));
+  container.querySelectorAll("h3 > .tags-edit").forEach(btn => btn.addEventListener("click", () => openTagsEditor(btn.dataset.id, btn)));
+}
+function allTags() { return [...new Set(graphApi.topics.flatMap(t => t.tags || []))].sort(); }
+
+// Inline editor for a topic's Tags (chips + type-to-add + suggestions).
+function openTagsEditor(topicId, headerBtn) {
+  const t = graphApi.topics.find(x => x.id === topicId); if (!t) return;
+  const tagList = headerBtn.parentElement.nextElementSibling; // .tag-list
+  if (tagList.nextElementSibling && tagList.nextElementSibling.classList.contains("tag-editor")) { tagList.nextElementSibling.remove(); return; }
+  let working = [...(t.tags || [])];
+  const box = document.createElement("div"); box.className = "ef-edit tag-editor";
+  const chips = document.createElement("div"); chips.className = "te-chips";
+  const row = document.createElement("div"); row.className = "te-row";
+  const input = document.createElement("input"); input.className = "te-input"; input.placeholder = "Add a tag…";
+  const addBtn = document.createElement("button"); addBtn.textContent = "Add";
+  const sugg = document.createElement("div"); sugg.className = "te-sugg";
+  const actions = document.createElement("div"); actions.className = "ef-actions";
+  const saveBtn = document.createElement("button"); saveBtn.className = "primary"; saveBtn.textContent = "Save";
+  const cancelBtn = document.createElement("button"); cancelBtn.textContent = "Cancel";
+  row.append(input, addBtn); actions.append(saveBtn, cancelBtn);
+  box.append(chips, row, sugg, actions);
+  tagList.insertAdjacentElement("afterend", box);
+  const renderChips = () => {
+    chips.innerHTML = working.length ? "" : '<span class="te-empty">No tags</span>';
+    working.forEach(tag => {
+      const c = document.createElement("span"); c.className = "te-chip"; c.textContent = tag;
+      const x = document.createElement("button"); x.textContent = "×"; x.title = "Remove";
+      x.addEventListener("click", () => { working = working.filter(w => w !== tag); renderChips(); renderSugg(); });
+      c.appendChild(x); chips.appendChild(c);
+    });
+  };
+  const renderSugg = () => {
+    sugg.innerHTML = "";
+    const avail = allTags().filter(tg => !working.includes(tg));
+    if (avail.length) { const l = document.createElement("span"); l.className = "te-label"; l.textContent = "Suggested:"; sugg.appendChild(l); }
+    avail.forEach(tg => { const s = document.createElement("button"); s.className = "te-sugg-chip"; s.textContent = tg;
+      s.addEventListener("click", () => { working.push(tg); renderChips(); renderSugg(); }); sugg.appendChild(s); });
+  };
+  const addTyped = () => { const v = input.value.trim(); if (v && !working.includes(v)) working.push(v); input.value = ""; renderChips(); renderSugg(); input.focus(); };
+  addBtn.addEventListener("click", addTyped);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addTyped(); } });
+  cancelBtn.addEventListener("click", () => box.remove());
+  saveBtn.addEventListener("click", async () => {
+    saveBtn.disabled = true; cancelBtn.disabled = true; saveBtn.textContent = "Saving…";
+    const ok = await window.editor.setField("topic", topicId, "tags", working);
+    if (!ok) { saveBtn.disabled = false; cancelBtn.disabled = false; saveBtn.textContent = "Save"; return; }
+    if (panelNode) panelNode.tags = working;
+    tagList.innerHTML = ""; working.forEach(tag => { const sp = document.createElement("span"); sp.className = "tag-chip"; sp.textContent = tag; tagList.appendChild(sp); });
+    box.remove();
+    graphApi.rebuild({ reheat: false });
+  });
+  renderChips(); renderSugg(); input.focus();
+}
+
+// Inline editor for a topic's Key Publications (add by link / remove).
+function openPublicationsEditor(topicId, headerBtn) {
+  const t = graphApi.topics.find(x => x.id === topicId); if (!t) return;
+  const pubList = headerBtn.parentElement.nextElementSibling; // .pub-list
+  if (pubList.nextElementSibling && pubList.nextElementSibling.classList.contains("pub-editor")) { pubList.nextElementSibling.remove(); return; }
+  const box = document.createElement("div"); box.className = "ef-edit pub-editor";
+  const rows = document.createElement("div"); rows.className = "pe-rows";
+  const row = document.createElement("div"); row.className = "te-row";
+  const input = document.createElement("input"); input.className = "te-input"; input.placeholder = "Paper DOI or arXiv link…";
+  const addBtn = document.createElement("button"); addBtn.textContent = "Add";
+  const status = document.createElement("div"); status.className = "pe-status";
+  const actions = document.createElement("div"); actions.className = "ef-actions";
+  const doneBtn = document.createElement("button"); doneBtn.className = "primary"; doneBtn.textContent = "Done";
+  row.append(input, addBtn); actions.append(doneBtn);
+  box.append(rows, row, status, actions);
+  pubList.insertAdjacentElement("afterend", box);
+  const renderRows = () => {
+    const ids = (graphApi.topics.find(x => x.id === topicId).paperIds) || [];
+    rows.innerHTML = ids.length ? "" : '<span class="te-empty">No papers yet</span>';
+    ids.forEach(key => {
+      const pp = graphApi.papers[key] || {};
+      const r = document.createElement("div"); r.className = "pe-row";
+      const x = document.createElement("button"); x.textContent = "×"; x.title = "Remove";
+      x.addEventListener("click", async () => { x.disabled = true; const ok = await window.editor.removePaperFromTopic(topicId, key); if (ok) renderRows(); else x.disabled = false; });
+      const lbl = document.createElement("span"); lbl.className = "pe-label"; lbl.textContent = pp.ref || pp.title || key;
+      r.append(x, lbl); rows.appendChild(r);
+    });
+  };
+  const doAdd = async () => {
+    const link = input.value.trim(); if (!link) return;
+    addBtn.disabled = true; status.textContent = "Fetching paper… (can take ~1 min)";
+    const res = await window.editor.addPaperByLink(topicId, link);
+    addBtn.disabled = false;
+    if (res.ok) { input.value = ""; status.textContent = "Added " + (res.key || ""); renderRows(); }
+    else status.textContent = "Error: " + (res.error || "failed");
+  };
+  addBtn.addEventListener("click", doAdd);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); doAdd(); } });
+  doneBtn.addEventListener("click", () => { box.remove(); graphApi.rebuild({ reheat: false }); const n = graphApi.nodeById.get(topicId); if (n) showPanel(n); });
+  renderRows(); input.focus();
 }
 // Build an <h3> heading with an inline edit pencil that edits `displayEl`.
 function headerWithEdit(text, type, id, field, displayEl) {
@@ -1153,8 +1271,8 @@ function showPanel(d) {
       + `<div class="open-questions md ef-content${oqEmpty ? " empty" : ""}">${renderMD(d.openQuestions || "")}</div>`;
   }
 
-  if (d.papers.length > 0) {
-    html += `<h3>Key Publications</h3>`;
+  if (d.papers.length > 0 || canEdit()) {
+    html += `<h3>Key Publications${headerEditBtn("pub-edit", d.id, "Add or remove papers")}</h3><div class="pub-list">`;
     d.papers.forEach(p => {
       const hasLocal = p.localPdf && loggedIn();
       let links = '<div class="paper-links">';
@@ -1167,6 +1285,7 @@ function showPanel(d) {
       html += `<div class="paper-item paper-card" data-key="${ea(p._key)}" data-localpdf="${p.localPdf ? 1 : ""}" data-arxiv="${ea(p.arxiv)}" data-doi="${ea(p.doi)}" data-title="${ea(p.title)}" data-ref="${ea(p.ref)}">`
         + `<div class="paper-title">${p.title}</div><div class="paper-ref">${p.ref}</div>${links}</div>`;
     });
+    html += `</div>`;
   }
 
   // Connections via adjacency maps.
@@ -1186,11 +1305,11 @@ function showPanel(d) {
     });
   }
 
-  html += `<h3>Tags</h3><div style="display:flex;gap:4px;flex-wrap:wrap">`;
-  d.tags.forEach(t => {
-    html += `<span style="padding:2px 8px;background:rgba(51,65,85,0.5);border-radius:4px;font-size:11px;color:#94a3b8">${t}</span>`;
-  });
-  html += `</div>`;
+  if (d.tags.length || canEdit()) {
+    html += `<h3>Tags${headerEditBtn("tags-edit", d.id, "Add or remove tags")}</h3><div class="tag-list">`;
+    d.tags.forEach(t => { html += `<span class="tag-chip">${t}</span>`; });
+    html += `</div>`;
+  }
 
   content.innerHTML = html;
   document.getElementById("panel-scroll").scrollTop = 0;
@@ -1226,7 +1345,7 @@ async function openDetailed(p) {
   const panel = document.getElementById("info-panel");
   const content = document.getElementById("panel-content");
   const base = apiBase();
-  panel.classList.add("detailed");
+  panel.classList.add("open", "detailed");
   document.getElementById("panel-scroll").scrollTop = 0;
   content.innerHTML = "";
   fadePanel();
@@ -1609,10 +1728,9 @@ function renderResults() {
   }
   searchResults.innerHTML = currentMatches.map((d, i) => {
     const papersHtml = matchingPapers(d).map(p => {
+      const ea = s => String(s || "").replace(/"/g, "&quot;");
       const inner = `${escapeHtml(p.title)}<br><span class="sr-paper-ref">${escapeHtml(p.ref)}</span>`;
-      return p.doi
-        ? `<a class="sr-paper" href="https://doi.org/${p.doi}" target="_blank" rel="noopener">${inner}</a>`
-        : `<span class="sr-paper">${inner}</span>`;
+      return `<div class="sr-paper" data-key="${ea(p._key)}" data-localpdf="${p.localPdf ? 1 : ""}" data-arxiv="${ea(p.arxiv)}" data-doi="${ea(p.doi)}" data-title="${ea(p.title)}" data-ref="${ea(p.ref)}">${inner}</div>`;
     }).join("");
     return `<div class="search-result${i === activeResultIdx ? " active" : ""}" data-idx="${i}">
        <div class="sr-head">
@@ -1624,12 +1742,18 @@ function renderResults() {
      </div>`;
   }).join("");
   searchResults.classList.add("show");
-  // Clicking a result focuses the node; clicking a paper link opens its DOI.
+  // Clicking a result focuses the node; clicking a paper opens its detailed view.
   searchResults.querySelectorAll(".search-result[data-idx]").forEach(el => {
     el.querySelector(".sr-head").addEventListener("click", () => selectResult(+el.dataset.idx));
   });
   searchResults.querySelectorAll(".sr-paper").forEach(el => {
-    el.addEventListener("click", e => e.stopPropagation());
+    el.addEventListener("click", e => {
+      e.stopPropagation();
+      const d = currentMatches[+el.closest(".search-result").dataset.idx];
+      if (d) panelNode = d;   // so the detailed view's Back returns to this topic
+      searchResults.classList.remove("show");
+      openDetailed({ arxiv: el.dataset.arxiv, doi: el.dataset.doi, title: el.dataset.title, ref: el.dataset.ref, key: el.dataset.key, localPdf: !!el.dataset.localpdf });
+    });
   });
 }
 
