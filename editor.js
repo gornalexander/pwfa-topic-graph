@@ -773,15 +773,13 @@
     const topicsContent = serializeTopics();
     const papersContent = serializePapers();
 
-    // On the local copy, save to disk first via the local helper.
+    // On the local copy, save to disk via the local helper. If it isn't running,
+    // do NOT silently commit to the remote — tell the user to start it.
     if (!isLive) {
       if (await localSave(topicsContent, papersContent)) return;
-      // Helper not running — fall back to committing to GitHub directly.
-      if (!state.token) {
-        saveFab.classList.remove("saving");
-        showDeploy("Local save server isn't running. Start it with <code>node editor/localsave.mjs</code>, or log in to commit to GitHub.", { error: true, done: true });
-        return;
-      }
+      saveFab.classList.remove("saving");
+      showDeploy("Not saved — the local save server isn't running. In the repo, run <code>node editor/localsave.mjs</code>, then click Save again. (Your changes are still here, unsaved.)", { error: true, done: true });
+      return;
     }
     if (!state.token) { saveFab.classList.remove("saving"); return flash("Not logged in"); }
     showDeploy("Committing to GitHub…", { spinner: true });
