@@ -769,6 +769,7 @@
   async function save() {
     saveFab.classList.add("saving");
     showDeploy("Saving…", { spinner: true });
+    if (api.capturePositions) api.capturePositions();   // persist bubble layout
     const topicsContent = serializeTopics();
     const papersContent = serializePapers();
 

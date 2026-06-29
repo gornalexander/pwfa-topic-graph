@@ -700,16 +700,18 @@ function deriveData() {
       papers: (t.paperIds || []).map(id => papers[id] && { ...papers[id], _key: id }).filter(Boolean),
     };
     const old = prev.get(t.id);
+    const hasSaved = typeof t.x === "number" && typeof t.y === "number";
     if (old) {
       n.x = old.x; n.y = old.y; n.vx = old.vx; n.vy = old.vy; n.fx = old.fx; n.fy = old.fy;
+    } else if (hasSaved) {
+      // Restore a saved layout position, pinned so it appears exactly there.
+      n.x = t.x; n.y = t.y; n.fx = t.x; n.fy = t.y;
     } else {
-      // Seed new nodes near their target (centered column, rank row) so they
-      // appear centered rather than spiraling out from the origin.
+      // Seed new nodes near their target (centered column, rank row).
       n.x = (Math.random() - 0.5) * 160;
       n.y = r * RANK_ROW;
+      if (r === 0) n.fy = r * RANK_ROW;   // rank-0 roots level (free in x)
     }
-    // Pin rank-0 roots to a fixed height (free in x) so they stay level.
-    if (r === 0) { n.fy = r * RANK_ROW; if (n.y == null) n.y = n.fy; }
     return n;
   });
   data.links = topics.flatMap(t =>
@@ -1033,8 +1035,8 @@ function dragged(event, d) {
 }
 function dragended(event, d) {
   if (!event.active) simulation.alphaTarget(0);
-  d.fx = null;
-  d.fy = null;
+  // Keep the node where it was dropped (pinned) so manual layout persists and
+  // can be saved. Save the graph to make it permanent across reloads.
 }
 
 // ============================================================
@@ -1820,6 +1822,8 @@ function treePositions() {
 
 function switchToTree() {
   const pos = treePositions();
+  // Remember pinned (home) positions, then unpin so the tree forces can arrange.
+  data.nodes.forEach(d => { d._hx = d.fx; d._hy = d.fy; d.fx = null; d.fy = null; });
   simulation
     .force("link", null)
     .force("center", null)
@@ -1832,7 +1836,8 @@ function switchToTree() {
 }
 
 function switchToForce() {
-  data.nodes.forEach(d => { d.fx = null; d.fy = null; });
+  // Restore the pinned (saved/dragged) positions; unpinned nodes re-settle.
+  data.nodes.forEach(d => { d.fx = (d._hx != null ? d._hx : null); d.fy = (d._hy != null ? d._hy : null); });
   applyForceLayout();
   simulation.alpha(0.6).alphaDecay(0.015).alphaTarget(0).restart();
   scheduleFit(1500);
@@ -1889,6 +1894,14 @@ function rebuild({ reheat = true } = {}) {
   updatePositions();
 }
 
+// Write current bubble positions back into the topics so a save persists them.
+function capturePositions() {
+  topics.forEach(t => {
+    const n = nodeById.get(t.id);
+    if (n && typeof n.x === "number" && typeof n.y === "number") { t.x = Math.round(n.x); t.y = Math.round(n.y); }
+  });
+}
+
 // API surface for editor.js (separate script, shared global scope).
 window.graphApi = {
   get topics() { return topics; },
@@ -1898,7 +1911,7 @@ window.graphApi = {
   get node() { return node; },
   get link() { return link; },
   get currentLayout() { return currentLayout; },
-  rebuild, renderGraph, deriveData,
+  rebuild, renderGraph, deriveData, capturePositions,
   showPanel, closePanel, focusNode, applyFilter,
   statusColors, labelText,
   svg, g, zoom, simulation,
