@@ -379,6 +379,90 @@ async function serveLocalPdf(rawKey, authHeader, reqOrigin, res) {
   fs.createReadStream(file).pipe(res);
 }
 
+// spawn helper that captures stdout (for pdftotext)
+function runOut(cmd, args) {
+  return new Promise((resolve) => {
+    const p = spawn(cmd, args);
+    let out = Buffer.alloc(0), err = "";
+    p.stdout.on("data", d => { out = Buffer.concat([out, d]); });
+    p.stderr.on("data", d => (err += d));
+    p.on("close", code => resolve({ code, out, err }));
+    p.on("error", e => resolve({ code: -1, out, err: e.message }));
+  });
+}
+
+// --- Figures + key results derived from a stored local PDF ---
+async function prepareFiguresFromPdf(key, origin) {
+  const safe = key.replace(/[^a-z0-9.]/gi, "_");
+  const dir = `${FIG_CACHE}/${safe}`;
+  const base = origin.replace(/\/$/, "");
+  try { const m = JSON.parse(await fsp.readFile(`${dir}/manifest.json`, "utf8")); return m.map(f => `${base}/fig/local/${encodeURIComponent(key)}/${f}`); } catch {}
+  const pdf = `${LOCAL_DIR}/${safe}.pdf`;
+  try { await fsp.access(pdf); } catch { return []; }
+  const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "fig-"));
+  try {
+    await run("pdfimages", ["-png", pdf, `${tmp}/img`]);
+    const files = (await fsp.readdir(tmp)).filter(f => f.endsWith(".png")).sort();
+    const picked = []; const seen = new Set();
+    for (const f of files) {
+      const buf = await fsp.readFile(`${tmp}/${f}`);
+      if (buf.length < 24 || buf.toString("latin1", 1, 4) !== "PNG") continue;
+      const w = buf.readUInt32BE(16), h = buf.readUInt32BE(20), r = w / h;
+      if (w < 350 || h < 250) continue;          // skip logos / fragments
+      if (w > 3000 || h > 3000) continue;        // skip full-page scans
+      if (r < 0.4 || r > 3.0) continue;          // skip page-column strips / banners
+      const sig = `${w}x${h}:${buf.length}`; if (seen.has(sig)) continue; seen.add(sig);
+      picked.push(buf);
+      if (picked.length >= 10) break;
+    }
+    if (!picked.length) return [];
+    await fsp.mkdir(dir, { recursive: true });
+    const manifest = [];
+    for (let i = 0; i < picked.length; i++) { const name = String(i).padStart(2, "0") + ".png"; await fsp.writeFile(`${dir}/${name}`, picked[i]); manifest.push(name); }
+    await fsp.writeFile(`${dir}/manifest.json`, JSON.stringify(manifest));
+    return manifest.map(f => `${base}/fig/local/${encodeURIComponent(key)}/${f}`);
+  } catch { return []; }
+  finally { fsp.rm(tmp, { recursive: true, force: true }).catch(() => {}); }
+}
+
+async function serveArticleFigs(rawKey, origin, cors, res) {
+  const key = decodeURIComponent(rawKey);
+  if (!/^[A-Za-z0-9._-]+$/.test(key)) { res.writeHead(400, cors); return res.end("bad key"); }
+  let figures = [];
+  try { figures = await prepareFiguresFromPdf(key, origin); } catch {}
+  res.writeHead(200, { "Content-Type": "application/json", ...cors });
+  res.end(JSON.stringify({ figures: figures.map(u => ({ url: u, caption: "" })) }));
+}
+
+async function serveKeyResultsLocal(rawKey, cors, res) {
+  const key = decodeURIComponent(rawKey);
+  const safe = key.replace(/[^a-z0-9.]/gi, "_");
+  if (!/^[A-Za-z0-9._-]+$/.test(key)) { res.writeHead(400, cors); return res.end("bad key"); }
+  const file = `${KEYRES_CACHE}/local_${safe}.json`;
+  const send = (obj, st = 200) => { res.writeHead(st, { "Content-Type": "application/json", ...cors }); res.end(JSON.stringify(obj)); };
+  try { return send(JSON.parse(await fsp.readFile(file, "utf8"))); } catch {}
+  if (keyResInFlight) return send({ keyResults: null, busy: true });
+  const pdf = `${LOCAL_DIR}/${safe}.pdf`;
+  try { await fsp.access(pdf); } catch { return send({ keyResults: null, error: "no pdf" }, 404); }
+  keyResInFlight = true;
+  try {
+    const t = await runOut("pdftotext", ["-q", pdf, "-"]);
+    const text = t.out.toString("utf8").replace(/\s+/g, " ").slice(0, 14000);
+    const prompt = `You are summarizing a scientific paper for a research dashboard.
+Text (extracted from the PDF):
+${text}
+
+List the 3 to 6 most important KEY RESULTS / findings of this paper as concise, specific bullet points (one sentence each, quantitative where the paper gives numbers). Exclude background and methodology. Respond with ONLY JSON: {"keyResults": ["...", "..."]}`;
+    const out = await runClaude(prompt);
+    let keyResults = [];
+    try { const m = out.match(/\{[\s\S]*\}/); keyResults = JSON.parse(m ? m[0] : out).keyResults || []; } catch {}
+    const result = { keyResults: Array.isArray(keyResults) ? keyResults : [] };
+    try { await fsp.mkdir(KEYRES_CACHE, { recursive: true }); await fsp.writeFile(file, JSON.stringify(result)); } catch {}
+    return send(result);
+  } catch (e) { return send({ keyResults: null, error: e.message }, 502); }
+  finally { keyResInFlight = false; }
+}
+
 http.createServer(async (req, res) => {
   try {
     const origin = env.PUBLIC_ORIGIN || `http://${req.headers.host}`;
@@ -398,9 +482,19 @@ http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url.startsWith("/pdf/arxiv/")) {
       return serveArxivPdf(req.url.slice("/pdf/arxiv/".length), res);
     }
-    // Public high-res figure images.
+    // Public high-res figure images (arXiv-sourced and local-PDF-sourced share the cache).
     if (req.method === "GET" && req.url.startsWith("/fig/arxiv/")) {
       return serveFig(req.url.slice("/fig/arxiv/".length), res);
+    }
+    if (req.method === "GET" && req.url.startsWith("/fig/local/")) {
+      return serveFig(req.url.slice("/fig/local/".length), res);
+    }
+    // Figures + key results derived from a stored local PDF (non-arXiv papers).
+    if (req.method === "GET" && req.url.startsWith("/article/figs/")) {
+      return serveArticleFigs(req.url.slice("/article/figs/".length), origin, pubCors, res);
+    }
+    if (req.method === "GET" && req.url.startsWith("/article/keyresults/local/")) {
+      return serveKeyResultsLocal(req.url.slice("/article/keyresults/local/".length), pubCors, res);
     }
     // AI key results (owner generates, cached; public reads cache).
     if (req.method === "GET" && req.url.startsWith("/article/keyresults/arxiv/")) {

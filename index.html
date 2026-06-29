@@ -1134,36 +1134,47 @@ async function openDetailed(p) {
         const a = d.authors;
         authors.textContent = a.length > 10 ? a.slice(0, 8).join(", ") + " … +" + (a.length - 8) + " more" : a.join(", ");
       }
-      if (d.figures && d.figures.length) {
-        figH.style.display = "";
-        d.figures.forEach((f, i) => {
-          const url = typeof f === "string" ? f : f.url;
-          const caption = typeof f === "string" ? "" : (f.caption || "");
-          const im = document.createElement("img");
-          im.src = url; im.loading = "lazy";
-          im.alt = caption || ("Figure " + (i + 1));
-          if (caption) im.title = caption;
-          im.addEventListener("click", () => openFig(url, caption));
-          figs.appendChild(im);
-        });
-      }
+      if (d.figures && d.figures.length) renderFigures(d.figures, figH, figs);
     }).catch(() => { abs.textContent = "Could not load article info."; });
   } else { abs.textContent = "No abstract available."; }
 
-  if (p.arxiv) {
+  // Non-arXiv papers: figures are extracted from the stored PDF.
+  if (!p.arxiv && p.localPdf && p.key) {
+    fetch(base + "/article/figs/" + encodeURIComponent(p.key)).then(r => r.json())
+      .then(d => { if (d.figures && d.figures.length) renderFigures(d.figures, figH, figs); }).catch(() => {});
+  }
+
+  // Key results work for every paper: arXiv from ar5iv text, others from the PDF.
+  const krPath = p.arxiv ? "/article/keyresults/arxiv/" + encodeURIComponent(p.arxiv)
+               : (p.localPdf && p.key) ? "/article/keyresults/local/" + encodeURIComponent(p.key) : null;
+  if (krPath) {
     kr.textContent = "Generating key results — first time can take up to ~1 min…";
-    loadKeyResults(base, p.arxiv, kr, 0);
-  } else { kr.textContent = "Key results are available for arXiv papers."; }
+    loadKeyResults(base, krPath, kr, 0);
+  } else { kr.textContent = "—"; }
+}
+
+function renderFigures(figures, figH, figs) {
+  figH.style.display = "";
+  figures.forEach((f, i) => {
+    const url = typeof f === "string" ? f : f.url;
+    const caption = typeof f === "string" ? "" : (f.caption || "");
+    const im = document.createElement("img");
+    im.src = url; im.loading = "lazy";
+    im.alt = caption || ("Figure " + (i + 1));
+    if (caption) im.title = caption;
+    im.addEventListener("click", () => openFig(url, caption));
+    figs.appendChild(im);
+  });
 }
 
 // Fetch key results; if the server is busy generating another, retry a few times.
-function loadKeyResults(base, arxiv, kr, attempt) {
-  fetch(base + "/article/keyresults/arxiv/" + encodeURIComponent(arxiv))
+function loadKeyResults(base, krPath, kr, attempt) {
+  fetch(base + krPath)
     .then(r => r.json())
     .then(d => {
       if (d.busy && attempt < 12) {
         kr.textContent = "Generating key results — the server is busy, retrying…";
-        setTimeout(() => loadKeyResults(base, arxiv, kr, attempt + 1), 8000);
+        setTimeout(() => loadKeyResults(base, krPath, kr, attempt + 1), 8000);
       } else {
         renderKeyResults(kr, d);
       }
